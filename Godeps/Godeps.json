@@ -1,0 +1,15 @@
+{
+	"ImportPath": "github.com/mleonard87/merknera",
+	"GoVersion": "go1.6",
+	"GodepVersion": "v62",
+	"Deps": [
+		{
+			"ImportPath": "github.com/gorilla/rpc",
+			"Rev": "5bc359e9ad5cb47312fe2ef8d0651dafab381f27"
+		},
+		{
+			"ImportPath": "github.com/gorilla/rpc/json",
+			"Rev": "5bc359e9ad5cb47312fe2ef8d0651dafab381f27"
+		}
+	]
+}

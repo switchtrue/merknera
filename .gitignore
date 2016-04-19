@@ -22,3 +22,12 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+vendor
+
+# IntelliJ
+.idea
+*.iml
+
+# Vagrant
+.vagrant

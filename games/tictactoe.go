@@ -8,10 +8,22 @@ import (
 	"github.com/mleonard87/merknera/repository"
 )
 
+const (
+	TICTACTOE_MNEMONIC = "TICTACTOE"
+	TICTACTOE_NAME     = "Tic-Tac-Toe"
+)
+
+func init() {
+	err := RegisterGameManager(new(TicTacToeGameManager))
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 type TicTacToeGameManager struct{}
 
-func (ttt TicTacToeGameManager) GenerateGames(bot repository.Bot) {
-	gameType, err := repository.GetGameTypeByMnemonic(GAME_TYPE_TICTACTOE)
+func (tgm TicTacToeGameManager) GenerateGames(bot repository.Bot) {
+	gameType, err := repository.GetGameTypeByMnemonic(TICTACTOE_MNEMONIC)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -39,6 +51,14 @@ func (ttt TicTacToeGameManager) GenerateGames(bot repository.Bot) {
 	}
 
 	fmt.Println(botList)
+}
+
+func (tgm TicTacToeGameManager) Mnemonic() string {
+	return TICTACTOE_MNEMONIC
+}
+
+func (tgm TicTacToeGameManager) Name() string {
+	return TICTACTOE_NAME
 }
 
 func registerPlayers(gameType repository.GameType, playerOne *repository.Bot, playerTwo *repository.Bot) error {

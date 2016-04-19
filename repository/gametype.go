@@ -6,6 +6,31 @@ type GameType struct {
 	Name     string
 }
 
+func CreateGameType(mnemonic string, name string) (GameType, error) {
+	db := GetDatabaseConnection()
+	defer db.Close()
+
+	var gameTypeId int
+	err := db.QueryRow(`
+	INSERT INTO game_type (
+	  mnemonic
+	, name
+	) VALUES (
+	  $1
+	, $2
+	) RETURNING id
+	`, mnemonic, name).Scan(&gameTypeId)
+	if err != nil {
+		return GameType{}, err
+	}
+
+	gameType, err := GetGameTypeById(gameTypeId)
+	if err != nil {
+		return GameType{}, err
+	}
+	return gameType, nil
+}
+
 func GetGameTypeByMnemonic(mnemonic string) (GameType, error) {
 	db := GetDatabaseConnection()
 	defer db.Close()

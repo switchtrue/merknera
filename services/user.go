@@ -18,10 +18,15 @@ type UserReply struct {
 type UserService struct{}
 
 func (h *UserService) Create(r *http.Request, args *UserArgs, reply *UserReply) error {
-	user, err := repository.CreateUser(args.Username)
+	db := repository.NewTransaction()
+
+	user, err := repository.CreateUser(db, args.Username)
 	if err != nil {
+		//db.Rollback()
 		return err
 	}
+
+	//db.Commit()
 
 	reply.UserId = user.Id
 	reply.Token = user.Token

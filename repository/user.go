@@ -1,8 +1,11 @@
 package repository
 
 import (
+	"log"
 	"math/rand"
 	"time"
+
+	"database/sql"
 
 	_ "github.com/lib/pq"
 )
@@ -42,10 +45,8 @@ func GenerateToken(n int) string {
 	return string(b)
 }
 
-func CreateUser(username string) (User, error) {
-	db := GetDatabaseConnection()
-	defer db.Close()
-
+func CreateUser(db *sql.DB, username string) (User, error) {
+	log.Print("CreateUser")
 	var userId int
 	err := db.QueryRow(`
 	INSERT INTO merknera_user (
@@ -60,17 +61,15 @@ func CreateUser(username string) (User, error) {
 		return User{}, err
 	}
 
-	user, err := GetUserById(userId)
+	user, err := GetUserById(db, userId)
 	if err != nil {
 		return User{}, err
 	}
 	return user, nil
 }
 
-func GetUserById(id int) (User, error) {
-	db := GetDatabaseConnection()
-	defer db.Close()
-
+func GetUserById(db *sql.DB, id int) (User, error) {
+	log.Print("GetUserById")
 	var user User
 	err := db.QueryRow(`
 	SELECT
@@ -87,10 +86,8 @@ func GetUserById(id int) (User, error) {
 	return user, nil
 }
 
-func GetUserByToken(token string) (User, error) {
-	db := GetDatabaseConnection()
-	defer db.Close()
-
+func GetUserByToken(db *sql.DB, token string) (User, error) {
+	log.Print("GetUserByToken")
 	var user User
 	err := db.QueryRow(`
 	SELECT

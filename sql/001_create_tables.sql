@@ -1,3 +1,4 @@
+DROP TABLE move;
 DROP TABLE game_bot;
 DROP TABLE game;
 DROP TABLE bot;
@@ -20,13 +21,16 @@ CREATE TABLE game_type (
 );
 
 CREATE TABLE bot (
-  id               SERIAL PRIMARY KEY
-, name             VARCHAR(250)
-, version          VARCHAR(100)
-, game_type_id     INTEGER REFERENCES game_type (id)
-, user_id          INTEGER REFERENCES merknera_user (id)
-, rpc_url          VARCHAR(500)
-, created_datetime TIMESTAMP WITH TIME ZONE DEFAULT (now())
+  id                   SERIAL PRIMARY KEY
+, name                 VARCHAR(250)
+, version              VARCHAR(100)
+, game_type_id         INTEGER REFERENCES game_type (id)
+, user_id              INTEGER REFERENCES merknera_user (id)
+, rpc_endpoint         VARCHAR(500)
+, programming_language VARCHAR(250)
+, website              VARCHAR(500) NULL
+, status               VARCHAR(20) DEFAULT 'ONLINE'
+, created_datetime     TIMESTAMP WITH TIME ZONE DEFAULT (now())
 );
 
 CREATE TABLE game (
@@ -40,16 +44,17 @@ CREATE TABLE game_bot (
   id               SERIAL PRIMARY KEY
 , game_id          INTEGER
 , bot_id           INTEGER
-, sequence         INTEGER
+, play_sequence    INTEGER
 , created_datetime TIMESTAMP WITH TIME ZONE DEFAULT (now())
 , UNIQUE (game_id, bot_id)
 );
 
---CREATE TABLE move (
---  id               SERIAL PRIMARY KEY
---, game_bot_id      INTEGER
---, created_datetime TIMESTAMP WITH TIME ZONE DEFAULT (now())
---);
+CREATE TABLE move (
+  id               SERIAL PRIMARY KEY
+, game_bot_id      INTEGER REFERENCES game_bot (id)
+, status           VARCHAR(20) DEFAULT 'NOT STARTED'
+, created_datetime TIMESTAMP WITH TIME ZONE DEFAULT (now())
+);
 
 
 

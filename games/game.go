@@ -1,14 +1,15 @@
 package games
 
 import (
+	"database/sql"
 	"errors"
-	"fmt"
+	"log"
 
 	"github.com/mleonard87/merknera/repository"
 )
 
 type GameManager interface {
-	GenerateGames(bot repository.Bot)
+	GenerateGames(db *sql.DB, bot repository.Bot)
 	Mnemonic() string
 	Name() string
 }
@@ -16,24 +17,24 @@ type GameManager interface {
 var RegisteredGameManagers []GameManager
 
 func RegisterGameManager(gameManager GameManager) error {
-	gameType, err := repository.GetGameTypeByMnemonic(gameManager.Mnemonic())
+	db := repository.NewTransaction()
+	_, err := repository.GetGameTypeByMnemonic(db, gameManager.Mnemonic())
 	if err != nil {
-		_, err := repository.CreateGameType(gameManager.Mnemonic(), gameManager.Name())
+		_, err := repository.CreateGameType(db, gameManager.Mnemonic(), gameManager.Name())
 		if err != nil {
+			//db.Rollback()
 			return err
 		}
 	}
+	//db.Commit()
 
 	RegisteredGameManagers = append(RegisteredGameManagers, gameManager)
-
-	fmt.Println("Registered game type:")
-	fmt.Println(gameType)
 
 	return nil
 }
 
 func GetGameManager(gameType repository.GameType) (GameManager, error) {
-
+	log.Println("GetGameManager")
 	for _, gm := range RegisteredGameManagers {
 		if gm.Mnemonic() == gameType.Mnemonic {
 			return gm, nil

@@ -2,7 +2,10 @@ package gameworker
 
 import (
 	"fmt"
-	"time"
+	"log"
+
+	"github.com/mleonard87/merknera/games"
+	"github.com/mleonard87/merknera/rpchelper"
 )
 
 type GameMoveWorker struct {
@@ -25,6 +28,12 @@ func NewGameMoveWorker(id int, gameMoveQueue chan chan GameMoveRequest) GameMove
 	return worker
 }
 
+type PingArgs struct{}
+
+type PingResult struct {
+	Ping string `json:"ping"`
+}
+
 // Start begins the worker by starting a goroutine, this is, an infinite
 // for-select loop.
 func (gmw GameMoveWorker) Start() {
@@ -35,11 +44,35 @@ func (gmw GameMoveWorker) Start() {
 
 			select {
 			case work := <-gmw.GameMoveRequestWork:
-				// Receive a work request.
-				fmt.Printf("worker%d: Received work request, delaying for %f seconds\n", gmw.Id, time.Second)
+				bot := work.GameMove.GameBot.Bot
+				gameType := work.GameMove.GameBot.Game.GameType
+				fmt.Printf("Bot: %s Endpoint: %s For: %s\n", bot.Name, bot.RPCEndpoint, gameType.Name)
 
-				time.Sleep(time.Second)
-				fmt.Printf("worker%d: Hello, %s!\n", gmw.Id, work.GameMove.GameBot.Bot.Name)
+				// Ping the bot to ensure its still online.
+				success := bot.Ping()
+				if success == false {
+					return
+				}
+
+				gameManager, err := games.GetGameManager(gameType)
+				if err != nil {
+					log.Fatal(err)
+				}
+				err = work.GameMove.MarkStarted()
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				method := gameManager.GetNextMoveRPCMethodName()
+				params := gameManager.GetNextMoveRPCParams(work.GameMove)
+
+				rpchelper.Call(bot.RPCEndpoint, method, params)
+
+				err = work.GameMove.MarkComplete()
+				if err != nil {
+					log.Fatal(err)
+				}
+
 			case <-gmw.QuitChan:
 				// We have been asked to stop.
 				fmt.Printf("worker%d stopping\n", gmw.Id)

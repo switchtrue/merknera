@@ -42,3 +42,7 @@ func NewTransaction() *sql.DB {
 
 	return DB
 }
+
+func GetDB() *sql.DB {
+	return DB
+}

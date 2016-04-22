@@ -12,7 +12,8 @@ type Game struct {
 	//Players  []GameBot
 }
 
-func (g *Game) GetNextMoveId(db *sql.DB) (int, error) {
+func (g *Game) GetNextMoveId() (int, error) {
+	db := GetDB()
 	log.Println("GetNextMoveId")
 	var nextMoveId int
 	err := db.QueryRow(`
@@ -27,6 +28,21 @@ func (g *Game) GetNextMoveId(db *sql.DB) (int, error) {
 	}
 
 	return nextMoveId, nil
+}
+
+func (g *Game) NextGameMove() (GameMove, error) {
+	moveId, err := g.GetNextMoveId()
+	if err != nil {
+		return GameMove{}, err
+	}
+
+	db := GetDB()
+	gameMove, err := GetGameMoveById(db, moveId)
+	if err != nil {
+		return gameMove, err
+	}
+
+	return gameMove, nil
 }
 
 func (g *Game) Players(db *sql.DB) ([]GameBot, error) {

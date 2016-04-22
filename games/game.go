@@ -9,9 +9,11 @@ import (
 )
 
 type GameManager interface {
-	GenerateGames(db *sql.DB, bot repository.Bot)
+	GenerateGames(db *sql.DB, bot repository.Bot) []repository.Game
 	Mnemonic() string
 	Name() string
+	GetNextMoveRPCMethodName() string
+	GetNextMoveRPCParams(gameMove repository.GameMove) interface{}
 }
 
 var RegisteredGameManagers []GameManager
@@ -22,11 +24,9 @@ func RegisterGameManager(gameManager GameManager) error {
 	if err != nil {
 		_, err := repository.CreateGameType(db, gameManager.Mnemonic(), gameManager.Name())
 		if err != nil {
-			//db.Rollback()
 			return err
 		}
 	}
-	//db.Commit()
 
 	RegisteredGameManagers = append(RegisteredGameManagers, gameManager)
 

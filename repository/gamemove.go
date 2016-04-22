@@ -10,6 +10,34 @@ type GameMove struct {
 	GameBot GameBot
 }
 
+func (gm *GameMove) MarkStarted() error {
+	db := GetDB()
+	err := db.QueryRow(`
+	UPDATE game_move
+	SET status = 'STARTED'
+	WHERE id = $1
+	`, gm.Id).Scan()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (gm *GameMove) MarkComplete() error {
+	db := GetDB()
+	err := db.QueryRow(`
+	UPDATE game_move
+	SET status = 'COMPLETE'
+	WHERE id = $1
+	`, gm.Id).Scan()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func CreateGameMove(db *sql.DB, gameBot GameBot) (GameMove, error) {
 	log.Println("CreateGameMove")
 	var gameMoveId int

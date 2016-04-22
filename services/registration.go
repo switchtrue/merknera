@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/mleonard87/merknera/games"
+	"github.com/mleonard87/merknera/gameworker"
 	"github.com/mleonard87/merknera/repository"
 )
 
@@ -12,7 +13,7 @@ type RegistrationArgs struct {
 	BotName             string `json:"botname"`
 	BotVersion          string `json:"botversion"`
 	Game                string `json:"game"`
-	Token               string
+	Token               string `json:"token"`
 	RPCEndpoint         string `json:"rpcendpoint"`
 	ProgrammingLanguage string `json:"programminglanguage"`
 	Website             string `json:"website"`
@@ -26,35 +27,36 @@ type RegistrationService struct{}
 
 func (h *RegistrationService) Register(r *http.Request, args *RegistrationArgs, reply *RegistrationReply) error {
 	log.Print("Register")
-	db := repository.NewTransaction()
+	db := repository.GetDB()
 
 	gameType, err := repository.GetGameTypeByMnemonic(db, args.Game)
 	if err != nil {
-		//db.Rollback()
 		return err
 	}
 
 	user, err := repository.GetUserByToken(db, args.Token)
 	if err != nil {
-		//db.Rollback()
 		return err
 	}
 
 	bot, err := repository.RegisterBot(db, args.BotName, args.BotVersion, gameType, user, args.RPCEndpoint, args.ProgrammingLanguage, args.Website)
 	if err != nil {
-		//db.Rollback()
 		return err
 	}
 
 	gameManager, err := games.GetGameManager(gameType)
 	if err != nil {
-		//db.Rollback()
 		return err
 	}
 
-	gameManager.GenerateGames(db, bot)
-
-	//db.Commit()
+	games := gameManager.GenerateGames(db, bot)
+	for _, g := range games {
+		gameMove, err := g.NextGameMove()
+		if err != nil {
+			return err
+		}
+		gameworker.QueueGameMove(gameMove)
+	}
 
 	reply.Message = "Hello, " + bot.Name + ", enjoy " + bot.GameType.Name + "!"
 

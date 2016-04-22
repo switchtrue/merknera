@@ -7,12 +7,12 @@ import (
 )
 
 type UserArgs struct {
-	Username string
+	Username string `json:"username"`
 }
 
 type UserReply struct {
-	UserId int
-	Token  string
+	UserId int    `json:"userid"`
+	Token  string `json:"token"`
 }
 
 type UserService struct{}

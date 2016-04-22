@@ -4,14 +4,6 @@
 	"GodepVersion": "v62",
 	"Deps": [
 		{
-			"ImportPath": "github.com/gorilla/rpc",
-			"Rev": "5bc359e9ad5cb47312fe2ef8d0651dafab381f27"
-		},
-		{
-			"ImportPath": "github.com/gorilla/rpc/json",
-			"Rev": "5bc359e9ad5cb47312fe2ef8d0651dafab381f27"
-		},
-		{
 			"ImportPath": "github.com/lib/pq",
 			"Comment": "go1.0-cutoff-84-g3cd0097",
 			"Rev": "3cd0097429be7d611bb644ef85b42bfb102ceea4"
@@ -20,6 +12,14 @@
 			"ImportPath": "github.com/lib/pq/oid",
 			"Comment": "go1.0-cutoff-84-g3cd0097",
 			"Rev": "3cd0097429be7d611bb644ef85b42bfb102ceea4"
+		},
+		{
+			"ImportPath": "github.com/mleonard87/rpc",
+			"Rev": "b5bc8d79b069658e2a251a188aa739a8629de2dd"
+		},
+		{
+			"ImportPath": "github.com/mleonard87/rpc/json",
+			"Rev": "b5bc8d79b069658e2a251a188aa739a8629de2dd"
 		}
 	]
 }

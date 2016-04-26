@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"fmt"
 	"log"
 
 	"database/sql"
@@ -61,7 +60,6 @@ func (b *Bot) User() (User, error) {
 // then mark te bot as offline and will not participate in any further games until
 // it is found to be online again.
 func (b *Bot) Ping() (bool, error) {
-	fmt.Printf("Pinging %s\n", b.Name)
 	err := rpchelper.Ping(b.RPCEndpoint)
 	if err != nil {
 		err2 := b.MarkOffline()

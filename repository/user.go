@@ -5,8 +5,6 @@ import (
 	"math/rand"
 	"time"
 
-	"database/sql"
-
 	_ "github.com/lib/pq"
 )
 
@@ -45,9 +43,10 @@ func GenerateToken(n int) string {
 	return string(b)
 }
 
-func CreateUser(db *sql.DB, username string) (User, error) {
+func CreateUser(username string) (User, error) {
 	log.Print("CreateUser")
 	var userId int
+	db := GetDB()
 	err := db.QueryRow(`
 	INSERT INTO merknera_user (
 	  username
@@ -61,16 +60,17 @@ func CreateUser(db *sql.DB, username string) (User, error) {
 		return User{}, err
 	}
 
-	user, err := GetUserById(db, userId)
+	user, err := GetUserById(userId)
 	if err != nil {
 		return User{}, err
 	}
 	return user, nil
 }
 
-func GetUserById(db *sql.DB, id int) (User, error) {
+func GetUserById(id int) (User, error) {
 	log.Print("GetUserById")
 	var user User
+	db := GetDB()
 	err := db.QueryRow(`
 	SELECT
 	  id
@@ -86,9 +86,10 @@ func GetUserById(db *sql.DB, id int) (User, error) {
 	return user, nil
 }
 
-func GetUserByToken(db *sql.DB, token string) (User, error) {
+func GetUserByToken(token string) (User, error) {
 	log.Print("GetUserByToken")
 	var user User
+	db := GetDB()
 	err := db.QueryRow(`
 	SELECT
 	  id

@@ -18,12 +18,13 @@ func Init() {
 	s.RegisterService(new(services.RegistrationService), "")
 	s.RegisterService(new(services.UserService), "")
 	http.Handle("/rpc", s)
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "<h1>Welcome to Merknera</h1>")
+	})
 
-	//repository.InitializeConnectionPool()
 	gameworker.StartGameMoveDispatcher(4)
 
-	db := repository.GetDB()
-	botList, err := repository.ListBots(db)
+	botList, err := repository.ListBots()
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -27,19 +27,18 @@ type RegistrationService struct{}
 
 func (h *RegistrationService) Register(r *http.Request, args *RegistrationArgs, reply *RegistrationReply) error {
 	log.Print("Register")
-	db := repository.GetDB()
 
-	gameType, err := repository.GetGameTypeByMnemonic(db, args.Game)
+	gameType, err := repository.GetGameTypeByMnemonic(args.Game)
 	if err != nil {
 		return err
 	}
 
-	user, err := repository.GetUserByToken(db, args.Token)
+	user, err := repository.GetUserByToken(args.Token)
 	if err != nil {
 		return err
 	}
 
-	bot, err := repository.RegisterBot(db, args.BotName, args.BotVersion, gameType, user, args.RPCEndpoint, args.ProgrammingLanguage, args.Website)
+	bot, err := repository.RegisterBot(args.BotName, args.BotVersion, gameType, user, args.RPCEndpoint, args.ProgrammingLanguage, args.Website)
 	if err != nil {
 		return err
 	}
@@ -49,7 +48,7 @@ func (h *RegistrationService) Register(r *http.Request, args *RegistrationArgs, 
 		return err
 	}
 
-	games := gameManager.GenerateGames(db, bot)
+	games := gameManager.GenerateGames(bot)
 	for _, g := range games {
 		gameMove, err := g.NextGameMove()
 		if err != nil {

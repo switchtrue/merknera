@@ -1,10 +1,17 @@
 package repository
 
 import (
-	"database/sql"
 	"log"
 
 	"github.com/mleonard87/merknera/rpchelper"
+)
+
+type BotStatus string
+
+const (
+	BOT_STATUS_ONLINE  BotStatus = "ONLINE"
+	BOT_STATUS_OFFLINE BotStatus = "OFFLINE"
+	BOT_STATUS_ERROR   BotStatus = "ERROR"
 )
 
 type Bot struct {
@@ -16,7 +23,7 @@ type Bot struct {
 	RPCEndpoint         string
 	ProgrammingLanguage string
 	Website             string
-	Status              string
+	Status              BotStatus
 }
 
 // Ping will make an RPC call to the Status.Ping method. If this does not return
@@ -34,37 +41,36 @@ func (b *Bot) Ping() bool {
 	return true
 }
 
-func (b *Bot) MarkOffline() error {
+func (b *Bot) setStatus(status BotStatus) error {
 	db := GetDB()
 	err := db.QueryRow(`
 	UPDATE bot
-	SET status = 'OFFLINE'
-	WHERE id = $1
-	`, b.Id).Scan()
+	SET status = $1
+	WHERE id = $2
+	`, string(status), b.Id).Scan()
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (b *Bot) MarkOffline() error {
+	return b.setStatus(BOT_STATUS_OFFLINE)
 }
 
 func (b *Bot) MarkOnline() error {
-	db := GetDB()
-	err := db.QueryRow(`
-	UPDATE bot
-	SET status = 'ONLINE'
-	WHERE id = $1
-	`, b.Id).Scan()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return b.setStatus(BOT_STATUS_ONLINE)
 }
 
-func RegisterBot(db *sql.DB, name string, version string, gameType GameType, user User, rpcEndpoint string, programmingLanguage string, website string) (Bot, error) {
+func (b *Bot) MarkError() error {
+	return b.setStatus(BOT_STATUS_ERROR)
+}
+
+func RegisterBot(name string, version string, gameType GameType, user User, rpcEndpoint string, programmingLanguage string, website string) (Bot, error) {
 	log.Println("RegisterBot")
 	var botId int
+	db := GetDB()
 	err := db.QueryRow(`
 	INSERT INTO bot (
 	  name
@@ -74,6 +80,7 @@ func RegisterBot(db *sql.DB, name string, version string, gameType GameType, use
 	, rpc_endpoint
 	, programming_language
 	, website
+	, status
 	) VALUES (
 	  $1
 	, $2
@@ -82,24 +89,27 @@ func RegisterBot(db *sql.DB, name string, version string, gameType GameType, use
 	, $5
 	, $6
 	, $7
+	, $8
 	) RETURNING id
-	`, name, version, gameType.Id, user.Id, rpcEndpoint, programmingLanguage, website).Scan(&botId)
+	`, name, version, gameType.Id, user.Id, rpcEndpoint, programmingLanguage, website, string(BOT_STATUS_ONLINE)).Scan(&botId)
 	if err != nil {
 		return Bot{}, err
 	}
 
-	bot, err := GetBotById(db, botId)
+	bot, err := GetBotById(botId)
 	if err != nil {
 		return Bot{}, err
 	}
 	return bot, nil
 }
 
-func GetBotById(db *sql.DB, id int) (Bot, error) {
+func GetBotById(id int) (Bot, error) {
 	log.Println("GetBotById")
 	var bot Bot
 	var gameTypeId int
 	var userId int
+	var status string
+	db := GetDB()
 	err := db.QueryRow(`
 	SELECT
 	  id
@@ -113,18 +123,19 @@ func GetBotById(db *sql.DB, id int) (Bot, error) {
 	, status
 	FROM bot
 	WHERE id = $1
-	`, id).Scan(&bot.Id, &bot.Name, &bot.Version, &gameTypeId, &userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &bot.Status)
+	`, id).Scan(&bot.Id, &bot.Name, &bot.Version, &gameTypeId, &userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &status)
 	if err != nil {
 		return Bot{}, err
 	}
+	bot.Status = BotStatus(status)
 
-	user, err := GetUserById(db, userId)
+	user, err := GetUserById(userId)
 	if err != nil {
 		return Bot{}, err
 	}
 	bot.User = user
 
-	gameType, err := GetGameTypeById(db, gameTypeId)
+	gameType, err := GetGameTypeById(gameTypeId)
 	if err != nil {
 		return Bot{}, err
 	}
@@ -134,8 +145,9 @@ func GetBotById(db *sql.DB, id int) (Bot, error) {
 	return bot, nil
 }
 
-func ListBotsForGameType(db *sql.DB, gameType GameType) ([]Bot, error) {
+func ListBotsForGameType(gameType GameType) ([]Bot, error) {
 	log.Println("ListBotsForGameType")
+	db := GetDB()
 	rows, err := db.Query(`
 	SELECT
 	  b.id
@@ -157,19 +169,21 @@ func ListBotsForGameType(db *sql.DB, gameType GameType) ([]Bot, error) {
 	var botList []Bot
 	for rows.Next() {
 		var bot Bot
-		err := rows.Scan(&bot.Id, &bot.Name, &bot.Version, &bot.GameType.Id, &bot.User.Id, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &bot.Status)
+		var status string
+		err := rows.Scan(&bot.Id, &bot.Name, &bot.Version, &bot.GameType.Id, &bot.User.Id, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &status)
 		if err != nil {
 			return botList, err
 		}
+		bot.Status = BotStatus(status)
 		botList = append(botList, bot)
 	}
 
 	for _, b := range botList {
-		b.GameType, err = GetGameTypeById(db, b.GameType.Id)
+		b.GameType, err = GetGameTypeById(b.GameType.Id)
 		if err != nil {
 			return []Bot{}, err
 		}
-		b.User, err = GetUserById(db, b.User.Id)
+		b.User, err = GetUserById(b.User.Id)
 		if err != nil {
 			return []Bot{}, err
 		}
@@ -178,8 +192,9 @@ func ListBotsForGameType(db *sql.DB, gameType GameType) ([]Bot, error) {
 	return botList, nil
 }
 
-func ListBots(db *sql.DB) ([]Bot, error) {
+func ListBots() ([]Bot, error) {
 	log.Println("ListBots")
+	db := GetDB()
 	rows, err := db.Query(`
 	SELECT
 	  b.id
@@ -200,19 +215,21 @@ func ListBots(db *sql.DB) ([]Bot, error) {
 	var botList []Bot
 	for rows.Next() {
 		var bot Bot
-		err := rows.Scan(&bot.Id, &bot.Name, &bot.Version, &bot.GameType.Id, &bot.User.Id, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &bot.Status)
+		var status string
+		err := rows.Scan(&bot.Id, &bot.Name, &bot.Version, &bot.GameType.Id, &bot.User.Id, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &status)
 		if err != nil {
 			return botList, err
 		}
+		bot.Status = BotStatus(status)
 		botList = append(botList, bot)
 	}
 
 	for _, b := range botList {
-		b.GameType, err = GetGameTypeById(db, b.GameType.Id)
+		b.GameType, err = GetGameTypeById(b.GameType.Id)
 		if err != nil {
 			return []Bot{}, err
 		}
-		b.User, err = GetUserById(db, b.User.Id)
+		b.User, err = GetUserById(b.User.Id)
 		if err != nil {
 			return []Bot{}, err
 		}

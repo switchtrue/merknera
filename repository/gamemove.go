@@ -1,36 +1,31 @@
 package repository
 
 import (
-	"database/sql"
+	"fmt"
 	"log"
 )
 
 type GameMove struct {
 	Id      int
 	GameBot GameBot
+	Status  GameMoveStatus
 }
 
-func (gm *GameMove) MarkStarted() error {
-	db := GetDB()
-	err := db.QueryRow(`
-	UPDATE game_move
-	SET status = 'STARTED'
-	WHERE id = $1
-	`, gm.Id).Scan()
-	if err != nil {
-		return err
-	}
+type GameMoveStatus string
 
-	return nil
-}
+const (
+	GAMEMOVE_STATUS_AWAITING GameMoveStatus = "AWAITING"
+	GAMEMOVE_STATUS_COMPLETE GameMoveStatus = "COMPLETE"
+)
 
 func (gm *GameMove) MarkComplete() error {
+	fmt.Println("MarkComplete")
 	db := GetDB()
-	err := db.QueryRow(`
-	UPDATE game_move
-	SET status = 'COMPLETE'
-	WHERE id = $1
-	`, gm.Id).Scan()
+	_, err := db.Exec(`
+	UPDATE move
+	SET status = $1
+	WHERE id = $2
+	`, string(GAMEMOVE_STATUS_COMPLETE), gm.Id)
 	if err != nil {
 		return err
 	}
@@ -38,9 +33,10 @@ func (gm *GameMove) MarkComplete() error {
 	return nil
 }
 
-func CreateGameMove(db *sql.DB, gameBot GameBot) (GameMove, error) {
+func CreateGameMove(gameBot GameBot) (GameMove, error) {
 	log.Println("CreateGameMove")
 	var gameMoveId int
+	db := GetDB()
 	err := db.QueryRow(`
 	INSERT INTO move (
 	  game_bot_id
@@ -49,33 +45,36 @@ func CreateGameMove(db *sql.DB, gameBot GameBot) (GameMove, error) {
 	) RETURNING id
 	`, gameBot.Id).Scan(&gameMoveId)
 	if err != nil {
-		log.Println("got herer")
 		return GameMove{}, err
 	}
 
-	gameMove, err := GetGameMoveById(db, gameMoveId)
+	gameMove, err := GetGameMoveById(gameMoveId)
 	if err != nil {
 		return GameMove{}, err
 	}
 	return gameMove, nil
 }
 
-func GetGameMoveById(db *sql.DB, id int) (GameMove, error) {
+func GetGameMoveById(id int) (GameMove, error) {
 	log.Println("GetGameMoveById")
 	var gameMove GameMove
 	var gameBotId int
+	var status string
+	db := GetDB()
 	err := db.QueryRow(`
 	SELECT
 	  id
 	, game_bot_id
+	, status
 	FROM move
 	WHERE id = $1
-	`, id).Scan(&gameMove.Id, &gameBotId)
+	`, id).Scan(&gameMove.Id, &gameBotId, &status)
 	if err != nil {
 		return GameMove{}, err
 	}
+	gameMove.Status = GameMoveStatus(status)
 
-	gameBot, err := GetGameBotById(db, gameBotId)
+	gameBot, err := GetGameBotById(gameBotId)
 	if err != nil {
 		return GameMove{}, err
 	}

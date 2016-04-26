@@ -15,11 +15,11 @@
 		},
 		{
 			"ImportPath": "github.com/mleonard87/rpc",
-			"Rev": "b5bc8d79b069658e2a251a188aa739a8629de2dd"
+			"Rev": "ac54b6be1f7e02cbb04a08b74e9b709758db46b4"
 		},
 		{
 			"ImportPath": "github.com/mleonard87/rpc/json",
-			"Rev": "b5bc8d79b069658e2a251a188aa739a8629de2dd"
+			"Rev": "ac54b6be1f7e02cbb04a08b74e9b709758db46b4"
 		}
 	]
 }

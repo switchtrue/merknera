@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/mleonard87/merknera/games"
+	"github.com/mleonard87/merknera/repository"
 	"github.com/mleonard87/merknera/rpchelper"
 )
 
@@ -45,12 +46,23 @@ func (gmw GameMoveWorker) Start() {
 			select {
 			case work := <-gmw.GameMoveRequestWork:
 				bot := work.GameMove.GameBot.Bot
-				gameType := work.GameMove.GameBot.Game.GameType
+				game := work.GameMove.GameBot.Game
+				gameType := game.GameType
+
 				fmt.Printf("Bot: %s Endpoint: %s For: %s\n", bot.Name, bot.RPCEndpoint, gameType.Name)
+
+				// If the Bot is marked as ERROR or OFFLINE then don't process this move.
+				if bot.Status != repository.BOT_STATUS_ONLINE {
+					return
+				}
 
 				// Ping the bot to ensure its still online.
 				success := bot.Ping()
 				if success == false {
+					err := bot.MarkOffline()
+					if err != nil {
+						log.Fatal(err)
+					}
 					return
 				}
 
@@ -58,15 +70,70 @@ func (gmw GameMoveWorker) Start() {
 				if err != nil {
 					log.Fatal(err)
 				}
-				err = work.GameMove.MarkStarted()
+
+				err = game.MarkInProgress()
 				if err != nil {
 					log.Fatal(err)
 				}
 
 				method := gameManager.GetNextMoveRPCMethodName()
-				params := gameManager.GetNextMoveRPCParams(work.GameMove)
 
-				rpchelper.Call(bot.RPCEndpoint, method, params)
+				params, err := gameManager.GetNextMoveRPCParams(work.GameMove)
+				if err != nil {
+					log.Fatal(err)
+				}
+				reply := gameManager.GetNextMoveRPCResult(work.GameMove)
+
+				var rsr rpchelper.RPCServerResponse
+				rsr.Result = reply
+				err = rpchelper.Call(bot.RPCEndpoint, method, params, &rsr)
+				if err != nil {
+					fmt.Println("Call failed")
+					log.Fatal(err)
+				}
+
+				if res, ok := rsr.Result.(map[string]interface{}); ok {
+					gs, winner, err := gameManager.ProcessMove(work.GameMove, res)
+					if err != nil {
+						log.Fatal(err)
+					}
+
+					err = game.SetGameState(gs)
+					if err != nil {
+						log.Fatal(err)
+					}
+
+					if !winner {
+						nextBot, err := gameManager.GetGameBotForNextMove(work.GameMove)
+						if err != nil {
+							log.Fatal(err)
+						}
+						nextMove, err := repository.CreateGameMove(nextBot)
+						if err != nil {
+							log.Fatal(err)
+						}
+						QueueGameMove(nextMove)
+					} else {
+						game.MarkComplete()
+						p, err := game.Players()
+						if err != nil {
+							log.Fatal(err)
+						}
+
+						// Send each player a Complete notification.
+						cm := gameManager.GetCompleteRPCMethodName()
+						for _, p := range p {
+							cp, err := gameManager.GetCompleteRPCParams(p)
+							if err != nil {
+								log.Fatal(err)
+							}
+							err = rpchelper.Notify(p.Bot.RPCEndpoint, cm, cp)
+							if err != nil {
+								log.Fatal(err)
+							}
+						}
+					}
+				}
 
 				err = work.GameMove.MarkComplete()
 				if err != nil {

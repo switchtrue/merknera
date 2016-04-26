@@ -1,20 +1,18 @@
 package repository
 
-import (
-	"database/sql"
-	"log"
-)
+import "log"
 
 type GameBot struct {
-	Id       int
-	Game     Game
-	Bot      Bot
-	Sequence int
+	Id           int
+	Game         Game
+	Bot          Bot
+	PlaySequence int
 }
 
-func CreateGameBot(db *sql.DB, game Game, bot Bot, sequence int) (GameBot, error) {
+func CreateGameBot(game Game, bot Bot, sequence int) (GameBot, error) {
 	log.Println("CreateGameBot")
 	var gameBotId int
+	db := GetDB()
 	err := db.QueryRow(`
 	INSERT INTO game_bot (
 	  game_id
@@ -30,18 +28,19 @@ func CreateGameBot(db *sql.DB, game Game, bot Bot, sequence int) (GameBot, error
 		return GameBot{}, err
 	}
 
-	gameBot, err := GetGameBotById(db, gameBotId)
+	gameBot, err := GetGameBotById(gameBotId)
 	if err != nil {
 		return GameBot{}, err
 	}
 	return gameBot, nil
 }
 
-func GetGameBotById(db *sql.DB, id int) (GameBot, error) {
+func GetGameBotById(id int) (GameBot, error) {
 	log.Println("GetGameBotById")
 	var gameBot GameBot
 	var gameId int
 	var botId int
+	db := GetDB()
 	err := db.QueryRow(`
 	SELECT
 	  gb.id
@@ -50,12 +49,12 @@ func GetGameBotById(db *sql.DB, id int) (GameBot, error) {
 	, gb.bot_id
 	FROM game_bot gb
 	WHERE gb.id = $1
-	`, id).Scan(&gameBot.Id, &gameBot.Sequence, &gameId, &botId)
+	`, id).Scan(&gameBot.Id, &gameBot.PlaySequence, &gameId, &botId)
 	if err != nil {
 		return GameBot{}, err
 	}
-	gameBot.Game, _ = GetGameById(db, gameId)
-	gameBot.Bot, _ = GetBotById(db, botId)
+	gameBot.Game, _ = GetGameById(gameId)
+	gameBot.Bot, _ = GetBotById(botId)
 
 	return gameBot, nil
 }

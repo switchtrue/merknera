@@ -1,9 +1,6 @@
 package repository
 
-import (
-	"database/sql"
-	"log"
-)
+import "log"
 
 type GameType struct {
 	Id       int
@@ -11,9 +8,10 @@ type GameType struct {
 	Name     string
 }
 
-func CreateGameType(db *sql.DB, mnemonic string, name string) (GameType, error) {
+func CreateGameType(mnemonic string, name string) (GameType, error) {
 	log.Print("CreateGameType")
 	var gameTypeId int
+	db := GetDB()
 	err := db.QueryRow(`
 	INSERT INTO game_type (
 	  mnemonic
@@ -27,16 +25,17 @@ func CreateGameType(db *sql.DB, mnemonic string, name string) (GameType, error) 
 		return GameType{}, err
 	}
 
-	gameType, err := GetGameTypeById(db, gameTypeId)
+	gameType, err := GetGameTypeById(gameTypeId)
 	if err != nil {
 		return GameType{}, err
 	}
 	return gameType, nil
 }
 
-func GetGameTypeByMnemonic(db *sql.DB, mnemonic string) (GameType, error) {
+func GetGameTypeByMnemonic(mnemonic string) (GameType, error) {
 	log.Print("GetGameTypeByMnemonic")
 	var gameType GameType
+	db := GetDB()
 	err := db.QueryRow(`
 	SELECT
 	  id
@@ -52,9 +51,10 @@ func GetGameTypeByMnemonic(db *sql.DB, mnemonic string) (GameType, error) {
 	return gameType, nil
 }
 
-func GetGameTypeById(db *sql.DB, id int) (GameType, error) {
+func GetGameTypeById(id int) (GameType, error) {
 	log.Printf("GetGameTypeById: %d", id)
 	var gameType GameType
+	db := GetDB()
 	err := db.QueryRow(`
 	SELECT
 	  gt.id

@@ -1,54 +1,105 @@
 package repository
 
 import (
-	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 )
+
+type GameStatus string
 
 type Game struct {
 	Id       int
 	GameType GameType
-	Status   string
-	//Players  []GameBot
+	Status   GameStatus
 }
+
+const (
+	GAME_STATUS_NOT_STARTED GameStatus = "NOT STARTED"
+	GAME_STATUS_IN_PROGRESS GameStatus = "IN PROGRESS"
+	GAME_STATUS_COMPLETE    GameStatus = "COMPLETE"
+)
 
 func (g *Game) GetNextMoveId() (int, error) {
 	db := GetDB()
 	log.Println("GetNextMoveId")
 	var nextMoveId int
 	err := db.QueryRow(`
-	SELECT
-	  id
-	FROM move
-	WHERE id = $1
-	AND status = 'NOT STARTED'
-	`, g.Id).Scan(&nextMoveId)
+	SELECT m.id
+	FROM game g
+	JOIN game_bot gb
+	  ON g.id = gb.game_id
+	JOIN move m
+	  ON gb.id = m.game_bot_id
+	WHERE g.id = $1
+	AND m.status = $2
+	`, g.Id, string(GAMEMOVE_STATUS_AWAITING)).Scan(&nextMoveId)
 	if err != nil {
-		return -1, err
+		return -1, errors.New("GetNextMoveId: " + err.Error())
 	}
 
 	return nextMoveId, nil
 }
 
 func (g *Game) NextGameMove() (GameMove, error) {
+	fmt.Println("NextGameMove")
 	moveId, err := g.GetNextMoveId()
 	if err != nil {
-		return GameMove{}, err
+		return GameMove{}, errors.New("NextGameMove: " + err.Error())
 	}
 
-	db := GetDB()
-	gameMove, err := GetGameMoveById(db, moveId)
+	gameMove, err := GetGameMoveById(moveId)
 	if err != nil {
-		return gameMove, err
+		return gameMove, errors.New("NextGameMove: " + err.Error())
 	}
 
 	return gameMove, nil
 }
 
-func (g *Game) Players(db *sql.DB) ([]GameBot, error) {
+func (g *Game) GetWinningMoveId() (int, error) {
+	db := GetDB()
+	log.Println("GetWinningMoveId")
+	var nextMoveId int
+	err := db.QueryRow(`
+	SELECT
+	  m.id
+	FROM game g
+	JOIN game_bot gb
+	  ON g.id = gb.game_id
+	JOIN move m
+	  ON gb.id = m.game_bot_id
+	WHERE g.id = $1
+	ORDER BY m.created_datetime DESC
+	LIMIT 1
+	`, g.Id).Scan(&nextMoveId)
+	if err != nil {
+		return -1, errors.New("GetWinningMoveId: " + err.Error())
+	}
+
+	return nextMoveId, nil
+}
+
+func (g *Game) WinningMove() (GameMove, error) {
+	fmt.Println("WinningMove")
+	moveId, err := g.GetWinningMoveId()
+	if err != nil {
+		return GameMove{}, errors.New("WinningMove: " + err.Error())
+	}
+
+	gameMove, err := GetGameMoveById(moveId)
+	if err != nil {
+		return gameMove, errors.New("WinningMove: " + err.Error())
+	}
+
+	return gameMove, nil
+}
+
+func (g *Game) Players() ([]GameBot, error) {
+	db := GetDB()
 	rows, err := db.Query(`
 	SELECT
-	  bot_id
+	  id
 	FROM game_bot
 	WHERE game_id = $1
 	ORDER BY play_sequence
@@ -59,7 +110,7 @@ func (g *Game) Players(db *sql.DB) ([]GameBot, error) {
 		var gameBot GameBot
 		var gameBotId int
 		rows.Scan(&gameBotId)
-		gameBot, err = GetGameBotById(db, gameBotId)
+		gameBot, err = GetGameBotById(gameBotId)
 		if err != nil {
 			return []GameBot{}, err
 		}
@@ -69,32 +120,99 @@ func (g *Game) Players(db *sql.DB) ([]GameBot, error) {
 	return gameBotList, nil
 }
 
-func CreateGame(db *sql.DB, gameType GameType) (Game, error) {
+func (g *Game) GameState() (string, error) {
+	db := GetDB()
+	var gs string
+	err := db.QueryRow(`
+	SELECT
+	  state
+	FROM game
+	WHERE id = $1
+	`, g.Id).Scan(&gs)
+	if err != nil {
+		return "", err
+	}
+
+	return gs, nil
+}
+
+func (g *Game) SetGameState(gs interface{}) error {
+	gsB, err := json.Marshal(gs)
+	if err != nil {
+		return err
+	}
+
+	db := GetDB()
+	_, err = db.Exec(`
+	UPDATE game
+	SET state = $1
+	WHERE id = $2
+	`, string(gsB), g.Id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (g *Game) setStatus(status GameStatus) error {
+	db := GetDB()
+	_, err := db.Exec(`
+	UPDATE game
+	SET status = $1
+	WHERE id = $2
+	`, string(status), g.Id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (g *Game) MarkInProgress() error {
+	return g.setStatus(GAME_STATUS_IN_PROGRESS)
+}
+
+func (g *Game) MarkComplete() error {
+	return g.setStatus(GAME_STATUS_COMPLETE)
+}
+
+func CreateGame(gameType GameType, initialGameState interface{}) (Game, error) {
 	log.Println("CreateGame")
 	var gameId int
-	err := db.QueryRow(`
-	INSERT INTO game (
-	  game_type_id
-	) VALUES (
-	  $1
-	) RETURNING id
-	`, gameType.Id).Scan(&gameId)
+
+	igsB, err := json.Marshal(initialGameState)
 	if err != nil {
-		log.Println("got herer")
 		return Game{}, err
 	}
 
-	game, err := GetGameById(db, gameId)
+	db := GetDB()
+	err = db.QueryRow(`
+	INSERT INTO game (
+	  game_type_id
+	, state
+	) VALUES (
+	  $1
+	, $2
+	) RETURNING id
+	`, gameType.Id, string(igsB)).Scan(&gameId)
 	if err != nil {
 		return Game{}, err
+	}
+
+	game, err := GetGameById(gameId)
+	if err != nil {
+		return game, err
 	}
 	return game, nil
 }
 
-func GetGameById(db *sql.DB, id int) (Game, error) {
+func GetGameById(id int) (Game, error) {
 	log.Println("GetGameById")
 	var game Game
 	var gameTypeId int
+	var status string
+	db := GetDB()
 	err := db.QueryRow(`
 	SELECT
 	  g.id
@@ -102,11 +220,12 @@ func GetGameById(db *sql.DB, id int) (Game, error) {
 	, g.game_type_id
 	FROM game g
 	WHERE g.id = $1
-	`, id).Scan(&game.Id, &game.Status, &gameTypeId)
+	`, id).Scan(&game.Id, &status, &gameTypeId)
 	if err != nil {
 		return Game{}, err
 	}
-	game.GameType, _ = GetGameTypeById(db, gameTypeId)
+	game.Status = GameStatus(status)
+	game.GameType, _ = GetGameTypeById(gameTypeId)
 
 	return game, nil
 }

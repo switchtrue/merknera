@@ -28,16 +28,24 @@ CREATE INDEX ON game_type (mnemonic);
 
 CREATE TABLE bot (
   id                   SERIAL PRIMARY KEY NOT NULL
-, name                 VARCHAR(250) NOT NULL
+, name                 VARCHAR(250) NOT NULL 
 , version              VARCHAR(100) NOT NULL
 , game_type_id         INTEGER REFERENCES game_type (id) NOT NULL
 , user_id              INTEGER REFERENCES merknera_user (id) NOT NULL
 , rpc_endpoint         VARCHAR(500) NOT NULL
 , programming_language VARCHAR(250)
 , website              VARCHAR(500) NULL
+, description          VARCHAR(1000) NULL
 , status               VARCHAR(20) NOT NULL CHECK (status IN ('ONLINE', 'OFFLINE', 'ERROR'))
 , created_datetime     TIMESTAMP WITH TIME ZONE DEFAULT (now()) NOT NULL
+, UNIQUE(name, version)
 );
+
+CREATE INDEX ON bot (name);
+
+CREATE INDEX ON bot (version);
+
+CREATE INDEX ON bot (programming_language);
 
 CREATE TABLE game (
   id               SERIAL PRIMARY KEY NOT NULL
@@ -46,6 +54,8 @@ CREATE TABLE game (
 , state            JSONB NOT NULL
 , created_datetime TIMESTAMP WITH TIME ZONE DEFAULT (now()) NOT NULL
 );
+
+CREATE INDEX ON game (game_type_id);
 
 CREATE TABLE game_bot (
   id               SERIAL PRIMARY KEY NOT NULL
@@ -58,12 +68,18 @@ CREATE TABLE game_bot (
 
 CREATE INDEX ON game_bot (game_id);
 
-CREATE TABLE move (
+CREATE INDEX ON game_bot (bot_id);
+
+CREATE TABLE move ( 
   id               SERIAL PRIMARY KEY NOT NULL
 , game_bot_id      INTEGER REFERENCES game_bot (id) NOT NULL
 , status           VARCHAR(20) DEFAULT 'AWAITING' NOT NULL CHECK (status IN ('AWAITING', 'COMPLETE'))
 , created_datetime TIMESTAMP WITH TIME ZONE DEFAULT (now()) NOT NULL
 );
+
+CREATE INDEX ON move (game_bot_id);
+
+CREATE INDEX ON move (status);
 
 
 

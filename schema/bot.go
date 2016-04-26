@@ -5,20 +5,6 @@ import (
 	"github.com/mleonard87/merknera/repository"
 )
 
-//type Bot struct {
-//	Id                  int
-//	Name                string
-//	Version             string
-//	gameTypeId          int
-//	gameType            GameType
-//	userId              int
-//	user                User
-//	RPCEndpoint         string
-//	ProgrammingLanguage string
-//	Website             string
-//	Status              BotStatus
-//}
-
 var BotType = graphql.NewObject(
 	graphql.ObjectConfig{
 		Name:        "Bot",
@@ -96,10 +82,20 @@ var BotType = graphql.NewObject(
 			},
 			"website": &graphql.Field{
 				Type:        graphql.String,
-				Description: "The website for the bot.",
+				Description: "An optional website for the bot.",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					if bot, ok := p.Source.(repository.Bot); ok {
 						return bot.Website, nil
+					}
+					return nil, nil
+				},
+			},
+			"description": &graphql.Field{
+				Type:        graphql.String,
+				Description: "An optional description about how the bot is implemented.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					if bot, ok := p.Source.(repository.Bot); ok {
+						return bot.Description, nil
 					}
 					return nil, nil
 				},
@@ -109,7 +105,7 @@ var BotType = graphql.NewObject(
 				Description: "The current status of the bot.",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					if bot, ok := p.Source.(repository.Bot); ok {
-						return bot.Status, nil
+						return string(bot.Status), nil
 					}
 					return nil, nil
 				},

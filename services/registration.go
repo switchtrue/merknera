@@ -23,6 +23,7 @@ type RegistrationArgs struct {
 	RPCEndpoint         string `json:"rpcendpoint"`
 	ProgrammingLanguage string `json:"programminglanguage"`
 	Website             string `json:"website"`
+	Description         string `json:"description"`
 }
 
 type RegistrationReply struct {
@@ -84,7 +85,7 @@ func (h *RegistrationService) Register(r *http.Request, args *RegistrationArgs, 
 
 		if !exists {
 
-			bot, err = repository.RegisterBot(args.BotName, args.BotVersion, gameType, user, args.RPCEndpoint, args.ProgrammingLanguage, args.Website)
+			bot, err = repository.RegisterBot(args.BotName, args.BotVersion, gameType, user, args.RPCEndpoint, args.ProgrammingLanguage, args.Website, args.Description)
 			if err != nil {
 				em := "An error occurred whilst registering your bot."
 				log.Printf("%s\n%s\n", em, err)
@@ -107,7 +108,7 @@ func (h *RegistrationService) Register(r *http.Request, args *RegistrationArgs, 
 			reply.Message = responseMessage
 		}
 	} else {
-		bot, err = repository.RegisterBot(args.BotName, args.BotVersion, gameType, user, args.RPCEndpoint, args.ProgrammingLanguage, args.Website)
+		bot, err = repository.RegisterBot(args.BotName, args.BotVersion, gameType, user, args.RPCEndpoint, args.ProgrammingLanguage, args.Website, args.Description)
 		if err != nil {
 			em := "An error occurred whilst registering your bot."
 			log.Printf("%s\n%s\n", em, err)

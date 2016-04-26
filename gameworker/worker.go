@@ -45,6 +45,13 @@ func (gmw GameMoveWorker) Start() {
 
 			select {
 			case work := <-gmw.GameMoveRequestWork:
+
+				// If for some reason the game move got added to the work queue twice and has already
+				// been processed just return.
+				if work.GameMove.Status != repository.GAMEMOVE_STATUS_AWAITING {
+					return
+				}
+
 				gameBot, err := work.GameMove.GameBot()
 				if err != nil {
 					log.Fatal(err)

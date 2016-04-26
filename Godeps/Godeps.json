@@ -4,6 +4,50 @@
 	"GodepVersion": "v62",
 	"Deps": [
 		{
+			"ImportPath": "github.com/graphql-go/graphql",
+			"Rev": "909ca9f800e7ab67307b4f9f1d56394346acb33c"
+		},
+		{
+			"ImportPath": "github.com/graphql-go/graphql/gqlerrors",
+			"Rev": "909ca9f800e7ab67307b4f9f1d56394346acb33c"
+		},
+		{
+			"ImportPath": "github.com/graphql-go/graphql/language/ast",
+			"Rev": "909ca9f800e7ab67307b4f9f1d56394346acb33c"
+		},
+		{
+			"ImportPath": "github.com/graphql-go/graphql/language/kinds",
+			"Rev": "909ca9f800e7ab67307b4f9f1d56394346acb33c"
+		},
+		{
+			"ImportPath": "github.com/graphql-go/graphql/language/lexer",
+			"Rev": "909ca9f800e7ab67307b4f9f1d56394346acb33c"
+		},
+		{
+			"ImportPath": "github.com/graphql-go/graphql/language/location",
+			"Rev": "909ca9f800e7ab67307b4f9f1d56394346acb33c"
+		},
+		{
+			"ImportPath": "github.com/graphql-go/graphql/language/parser",
+			"Rev": "909ca9f800e7ab67307b4f9f1d56394346acb33c"
+		},
+		{
+			"ImportPath": "github.com/graphql-go/graphql/language/printer",
+			"Rev": "909ca9f800e7ab67307b4f9f1d56394346acb33c"
+		},
+		{
+			"ImportPath": "github.com/graphql-go/graphql/language/source",
+			"Rev": "909ca9f800e7ab67307b4f9f1d56394346acb33c"
+		},
+		{
+			"ImportPath": "github.com/graphql-go/graphql/language/visitor",
+			"Rev": "909ca9f800e7ab67307b4f9f1d56394346acb33c"
+		},
+		{
+			"ImportPath": "github.com/graphql-go/handler",
+			"Rev": "52e6de4fccd785952dce42265f316acd43a3053f"
+		},
+		{
 			"ImportPath": "github.com/lib/pq",
 			"Comment": "go1.0-cutoff-84-g3cd0097",
 			"Rev": "3cd0097429be7d611bb644ef85b42bfb102ceea4"
@@ -15,11 +59,15 @@
 		},
 		{
 			"ImportPath": "github.com/mleonard87/rpc",
-			"Rev": "ac54b6be1f7e02cbb04a08b74e9b709758db46b4"
+			"Rev": "b5bc8d79b069658e2a251a188aa739a8629de2dd"
 		},
 		{
 			"ImportPath": "github.com/mleonard87/rpc/json",
-			"Rev": "ac54b6be1f7e02cbb04a08b74e9b709758db46b4"
+			"Rev": "b5bc8d79b069658e2a251a188aa739a8629de2dd"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "31df19d69da8728e9220def59b80ee577c3e48bf"
 		}
 	]
 }

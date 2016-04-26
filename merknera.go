@@ -5,25 +5,46 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/graphql-go/handler"
 	"github.com/mleonard87/merknera/gameworker"
 	"github.com/mleonard87/merknera/repository"
+	"github.com/mleonard87/merknera/schema"
 	"github.com/mleonard87/merknera/services"
 	"github.com/mleonard87/rpc"
 	"github.com/mleonard87/rpc/json"
 )
 
-func Init() {
+func registerRPCHandler() {
 	s := rpc.NewServer()
 	s.RegisterCodec(json.NewCodec(), "application/json")
 	s.RegisterService(new(services.RegistrationService), "")
 	s.RegisterService(new(services.UserService), "")
 	http.Handle("/rpc", s)
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "<h1>Welcome to Merknera</h1>")
+}
+
+func registerGraphQLHandler() {
+	schema := schema.MerkneraSchema()
+
+	h := handler.New(&handler.Config{
+		Schema: schema,
+		Pretty: true,
 	})
 
-	gameworker.StartGameMoveDispatcher(4)
+	http.Handle("/graphql", h)
+}
 
+func registerStaticFileServerHandler() {
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/", fs)
+}
+
+func registerAboutHandler() {
+	http.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "<h1>Welcome to Merknera</h1>")
+	})
+}
+
+func verifyBotsAndQueueMoves() {
 	botList, err := repository.ListBots()
 	if err != nil {
 		log.Fatal(err)
@@ -40,11 +61,18 @@ func Init() {
 	for _, gm := range awaitingMoves {
 		gameworker.QueueGameMove(gm)
 	}
-
-	fmt.Println("Merknera is now listening on localhost:8080")
-	http.ListenAndServe(":8080", nil)
 }
 
 func main() {
-	Init()
+	registerRPCHandler()
+	registerGraphQLHandler()
+	registerStaticFileServerHandler()
+	registerAboutHandler()
+
+	gameworker.StartGameMoveDispatcher(4)
+
+	verifyBotsAndQueueMoves()
+
+	fmt.Println("Merknera is now listening on localhost:8080")
+	http.ListenAndServe(":8080", nil)
 }

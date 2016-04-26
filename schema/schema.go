@@ -4,14 +4,16 @@ import (
 	"log"
 
 	"github.com/graphql-go/graphql"
+	"github.com/mleonard87/merknera/repository"
 )
 
 func MerkneraSchema() *graphql.Schema {
 	fields := graphql.Fields{
-		"hello": &graphql.Field{
-			Type: graphql.String,
+		"botList": &graphql.Field{
+			Type:        graphql.NewList(BotType),
+			Description: "List of bots",
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				return "world", nil
+				return repository.ListBots()
 			},
 		},
 	}

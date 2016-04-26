@@ -2,7 +2,6 @@ package games
 
 import (
 	"errors"
-	"log"
 
 	"reflect"
 
@@ -54,7 +53,6 @@ func RegisterGameManager(gm GameManager) error {
 }
 
 func GetGameManager(gameType repository.GameType) (GameManager, error) {
-	log.Println("GetGameManager")
 	for _, gm := range RegisteredGameManagers {
 		if gm.GameManager.Mnemonic() == gameType.Mnemonic {
 			return gm.GameManager, nil

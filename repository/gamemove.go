@@ -1,14 +1,12 @@
 package repository
 
-import (
-	"fmt"
-	"log"
-)
+import "log"
 
 type GameMove struct {
-	Id      int
-	GameBot GameBot
-	Status  GameMoveStatus
+	Id        int
+	gameBotId int
+	gameBot   GameBot
+	Status    GameMoveStatus
 }
 
 type GameMoveStatus string
@@ -18,8 +16,20 @@ const (
 	GAMEMOVE_STATUS_COMPLETE GameMoveStatus = "COMPLETE"
 )
 
+func (gm *GameMove) GameBot() (GameBot, error) {
+	if gm.gameBot == (GameBot{}) {
+		gb, err := GetGameBotById(gm.gameBotId)
+		if err != nil {
+			log.Printf("An error occurred in gamemove.GameBot():\n%s\n", err)
+			return GameBot{}, err
+		}
+		gm.gameBot = gb
+	}
+
+	return gm.gameBot, nil
+}
+
 func (gm *GameMove) MarkComplete() error {
-	fmt.Println("MarkComplete")
 	db := GetDB()
 	_, err := db.Exec(`
 	UPDATE move
@@ -27,6 +37,7 @@ func (gm *GameMove) MarkComplete() error {
 	WHERE id = $2
 	`, string(GAMEMOVE_STATUS_COMPLETE), gm.Id)
 	if err != nil {
+		log.Printf("An error occurred in gamemove.MarkComplete():\n%s\n", err)
 		return err
 	}
 
@@ -34,7 +45,6 @@ func (gm *GameMove) MarkComplete() error {
 }
 
 func CreateGameMove(gameBot GameBot) (GameMove, error) {
-	log.Println("CreateGameMove")
 	var gameMoveId int
 	db := GetDB()
 	err := db.QueryRow(`
@@ -45,20 +55,20 @@ func CreateGameMove(gameBot GameBot) (GameMove, error) {
 	) RETURNING id
 	`, gameBot.Id).Scan(&gameMoveId)
 	if err != nil {
+		log.Printf("An error occurred in gamemove.CreateGameMove():1:\n%s\n", err)
 		return GameMove{}, err
 	}
 
 	gameMove, err := GetGameMoveById(gameMoveId)
 	if err != nil {
+		log.Printf("An error occurred in gamemove.CreateGameMove():2:\n%s\n", err)
 		return GameMove{}, err
 	}
 	return gameMove, nil
 }
 
 func GetGameMoveById(id int) (GameMove, error) {
-	log.Println("GetGameMoveById")
 	var gameMove GameMove
-	var gameBotId int
 	var status string
 	db := GetDB()
 	err := db.QueryRow(`
@@ -68,18 +78,13 @@ func GetGameMoveById(id int) (GameMove, error) {
 	, status
 	FROM move
 	WHERE id = $1
-	`, id).Scan(&gameMove.Id, &gameBotId, &status)
+	`, id).Scan(&gameMove.Id, &gameMove.gameBotId, &status)
 	if err != nil {
+		log.Printf("An error occurred in gamemove.GetGameMoveById():\n%s\n", err)
 		return GameMove{}, err
 	}
+
 	gameMove.Status = GameMoveStatus(status)
-
-	gameBot, err := GetGameBotById(gameBotId)
-	if err != nil {
-		return GameMove{}, err
-	}
-
-	gameMove.GameBot = gameBot
 
 	return gameMove, nil
 }

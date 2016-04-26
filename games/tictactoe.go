@@ -55,7 +55,6 @@ func (tgs *TicTacToeGameState) MarshalJSON() ([]byte, error) {
 type TicTacToeGameManager struct{}
 
 func (tgm TicTacToeGameManager) GenerateGames(bot repository.Bot) []repository.Game {
-	log.Println("GenerateGames")
 	gameType, err := repository.GetGameTypeByMnemonic(TICTACTOE_MNEMONIC)
 	if err != nil {
 		log.Fatal(err)
@@ -114,9 +113,19 @@ type nextMoveParams struct {
 }
 
 func (tgm TicTacToeGameManager) GetNextMoveRPCParams(gameMove repository.GameMove) (interface{}, error) {
-	mark := getMarkForPlaySequence(gameMove.GameBot.PlaySequence)
+	gb, err := gameMove.GameBot()
+	if err != nil {
+		return nil, err
+	}
 
-	gs, err := gameMove.GameBot.Game.GameState()
+	mark := getMarkForPlaySequence(gb.PlaySequence)
+
+	g, err := gb.Game()
+	if err != nil {
+		return nil, err
+	}
+
+	gs, err := g.GameState()
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +137,7 @@ func (tgm TicTacToeGameManager) GetNextMoveRPCParams(gameMove repository.GameMov
 	}
 
 	params := nextMoveParams{
-		GameId:    gameMove.GameBot.Game.Id,
+		GameId:    g.Id,
 		Mark:      mark,
 		GameState: tttGameState,
 	}
@@ -152,7 +161,16 @@ func (tgm TicTacToeGameManager) ProcessMove(gameMove repository.GameMove, result
 		return nil, false, errors.New("Could not find property \"position\" in your response or position was not an integer.")
 	}
 
-	game := gameMove.GameBot.Game
+	gb, err := gameMove.GameBot()
+	if err != nil {
+		return nil, false, err
+	}
+
+	game, err := gb.Game()
+	if err != nil {
+		return nil, false, err
+	}
+
 	gs, err := game.GameState()
 	if err != nil {
 		return nil, false, err
@@ -169,31 +187,32 @@ func (tgm TicTacToeGameManager) ProcessMove(gameMove repository.GameMove, result
 		return nil, false, errors.New(msg)
 	}
 
-	//fmt.Printf("position: %d", position)
-	//
-	//fmt.Printf("Game: %d\n", gameMove.GameBot.Game.Id)
-	//fmt.Println("Before state")
-	//fmt.Println(tttGameState)
-
-	mark := getMarkForPlaySequence(gameMove.GameBot.PlaySequence)
+	mark := getMarkForPlaySequence(gb.PlaySequence)
 	tttGameState[position] = mark
-	//fmt.Println("After state")
-	//fmt.Println(tttGameState)
 
 	win := isWinForMark(tttGameState, mark)
-	//fmt.Printf("win: %v\n", win)
 
 	return tttGameState, win, nil
 }
 
 func (tgm TicTacToeGameManager) GetGameBotForNextMove(currentMove repository.GameMove) (repository.GameBot, error) {
-	gameBots, err := currentMove.GameBot.Game.Players()
+	gb, err := currentMove.GameBot()
+	if err != nil {
+		return repository.GameBot{}, err
+	}
+
+	game, err := gb.Game()
+	if err != nil {
+		return repository.GameBot{}, err
+	}
+
+	gameBots, err := game.Players()
 	if err != nil {
 		return repository.GameBot{}, err
 	}
 
 	for _, b := range gameBots {
-		if b.Id != currentMove.GameBot.Id {
+		if b.Id != gb.Id {
 			return b, nil
 		}
 	}
@@ -209,18 +228,28 @@ type completeParams struct {
 }
 
 func (tgm TicTacToeGameManager) GetCompleteRPCParams(gb repository.GameBot) (interface{}, error) {
-	gs, err := gb.Game.GameState()
+	game, err := gb.Game()
 	if err != nil {
 		return nil, err
 	}
 
-	wm, err := gb.Game.WinningMove()
+	gs, err := game.GameState()
+	if err != nil {
+		return nil, err
+	}
+
+	wm, err := game.WinningMove()
+	if err != nil {
+		return nil, err
+	}
+
+	winninggb, err := wm.GameBot()
 	if err != nil {
 		return nil, err
 	}
 
 	w := false
-	if wm.GameBot.Id == gb.Id {
+	if gb.Id == winninggb.Id {
 		w = true
 	}
 
@@ -230,7 +259,7 @@ func (tgm TicTacToeGameManager) GetCompleteRPCParams(gb repository.GameBot) (int
 		return nil, err
 	}
 	cp := completeParams{
-		GameId:    gb.Game.Id,
+		GameId:    game.Id,
 		Winner:    w,
 		Mark:      getMarkForPlaySequence(gb.PlaySequence),
 		GameState: tgs,
@@ -246,8 +275,10 @@ type errorParams struct {
 }
 
 func (tgm TicTacToeGameManager) GetErrorRPCParams(gm repository.GameMove, errorMessage string) interface{} {
+	gb, _ := gm.GameBot()
+	game, _ := gb.Game()
 	return errorParams{
-		GameId:    gm.GameBot.Game.Id,
+		GameId:    game.Id,
 		Message:   errorMessage,
 		ErrorCode: 999,
 	}

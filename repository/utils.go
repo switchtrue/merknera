@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+
+	_ "github.com/lib/pq"
 )
 
 const (
@@ -26,7 +28,7 @@ func init() {
 		connstring := fmt.Sprintf("postgres://%s:%s@%s/%s", dbuser, dbpass, dbhost, dbname)
 		db, err := sql.Open("postgres", connstring)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Error opening database connection: %s", err)
 		}
 		DB = db
 	}

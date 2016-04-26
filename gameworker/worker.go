@@ -45,9 +45,25 @@ func (gmw GameMoveWorker) Start() {
 
 			select {
 			case work := <-gmw.GameMoveRequestWork:
-				bot := work.GameMove.GameBot.Bot
-				game := work.GameMove.GameBot.Game
-				gameType := game.GameType
+				gameBot, err := work.GameMove.GameBot()
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				bot, err := gameBot.Bot()
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				game, err := gameBot.Game()
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				gameType, err := game.GameType()
+				if err != nil {
+					log.Fatal(err)
+				}
 
 				fmt.Printf("Bot: %s Endpoint: %s For: %s\n", bot.Name, bot.RPCEndpoint, gameType.Name)
 
@@ -127,7 +143,13 @@ func (gmw GameMoveWorker) Start() {
 							if err != nil {
 								log.Fatal(err)
 							}
-							err = rpchelper.Notify(p.Bot.RPCEndpoint, cm, cp)
+
+							pb, err := p.Bot()
+							if err != nil {
+								log.Fatal(err)
+							}
+
+							err = rpchelper.Notify(pb.RPCEndpoint, cm, cp)
 							if err != nil {
 								log.Fatal(err)
 							}
@@ -150,7 +172,6 @@ func (gmw GameMoveWorker) Start() {
 }
 
 // Stop tells the worker to stop listening for work requests.
-//
 // Note that the worker will only stop *after* it has finished its work.
 func (gmw GameMoveWorker) Stop() {
 	go func() {

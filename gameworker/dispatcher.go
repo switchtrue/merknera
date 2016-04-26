@@ -20,10 +20,8 @@ func StartGameMoveDispatcher(numworkers int) {
 		for {
 			select {
 			case work := <-GameMoveQueue:
-				fmt.Println("Received work request")
 				go func() {
 					worker := <-WorkerQueue
-					fmt.Println("Dispatching work request")
 					worker <- work
 				}()
 			}

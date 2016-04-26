@@ -1,6 +1,11 @@
 package repository
 
-import "log"
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"log"
+)
 
 type GameType struct {
 	Id       int
@@ -9,7 +14,6 @@ type GameType struct {
 }
 
 func CreateGameType(mnemonic string, name string) (GameType, error) {
-	log.Print("CreateGameType")
 	var gameTypeId int
 	db := GetDB()
 	err := db.QueryRow(`
@@ -22,18 +26,19 @@ func CreateGameType(mnemonic string, name string) (GameType, error) {
 	) RETURNING id
 	`, mnemonic, name).Scan(&gameTypeId)
 	if err != nil {
+		log.Printf("An error occurred in gametype.CreateGameType():1:\n%s\n", err)
 		return GameType{}, err
 	}
 
 	gameType, err := GetGameTypeById(gameTypeId)
 	if err != nil {
+		log.Printf("An error occurred in gametype.CreateGameType():2:\n%s\n", err)
 		return GameType{}, err
 	}
 	return gameType, nil
 }
 
 func GetGameTypeByMnemonic(mnemonic string) (GameType, error) {
-	log.Print("GetGameTypeByMnemonic")
 	var gameType GameType
 	db := GetDB()
 	err := db.QueryRow(`
@@ -45,6 +50,11 @@ func GetGameTypeByMnemonic(mnemonic string) (GameType, error) {
 	WHERE mnemonic = $1
 	`, mnemonic).Scan(&gameType.Id, &gameType.Mnemonic, &gameType.Name)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			em := fmt.Sprintf("Game \"%s\" is not known", mnemonic)
+			return GameType{}, errors.New(em)
+		}
+		log.Printf("An error occurred in gametype.GetGameTypeByMnemonic():\n%s\n", err)
 		return GameType{}, err
 	}
 
@@ -52,7 +62,6 @@ func GetGameTypeByMnemonic(mnemonic string) (GameType, error) {
 }
 
 func GetGameTypeById(id int) (GameType, error) {
-	log.Printf("GetGameTypeById: %d", id)
 	var gameType GameType
 	db := GetDB()
 	err := db.QueryRow(`
@@ -64,6 +73,7 @@ func GetGameTypeById(id int) (GameType, error) {
 	WHERE gt.id = $1
 	`, id).Scan(&gameType.Id, &gameType.Mnemonic, &gameType.Name)
 	if err != nil {
+		log.Printf("An error occurred in gametype.GetGameTypeById():\n%s\n", err)
 		return GameType{}, err
 	}
 

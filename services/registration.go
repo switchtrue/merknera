@@ -4,6 +4,12 @@ import (
 	"log"
 	"net/http"
 
+	"errors"
+
+	"database/sql"
+
+	"fmt"
+
 	"github.com/mleonard87/merknera/games"
 	"github.com/mleonard87/merknera/gameworker"
 	"github.com/mleonard87/merknera/repository"
@@ -26,8 +32,6 @@ type RegistrationReply struct {
 type RegistrationService struct{}
 
 func (h *RegistrationService) Register(r *http.Request, args *RegistrationArgs, reply *RegistrationReply) error {
-	log.Print("Register")
-
 	gameType, err := repository.GetGameTypeByMnemonic(args.Game)
 	if err != nil {
 		return err
@@ -38,26 +42,105 @@ func (h *RegistrationService) Register(r *http.Request, args *RegistrationArgs, 
 		return err
 	}
 
-	bot, err := repository.RegisterBot(args.BotName, args.BotVersion, gameType, user, args.RPCEndpoint, args.ProgrammingLanguage, args.Website)
+	// Check to see if a bot with this name already exists.
+	bot, err := repository.GetBotByName(args.BotName)
+	if err != nil && err != sql.ErrNoRows {
+		em := "An error occurred whilst registering your bot."
+		log.Printf("%s\n%s\n", em, err)
+		return errors.New(em)
+	}
+
+	// Get a list of all bots, l
+	allBots, err := repository.ListBots()
 	if err != nil {
-		return err
+		em := "An error occurred whilst registering your bot."
+		log.Printf("%s\n%s\n", em, err)
+		return errors.New(em)
+	}
+
+	// The zero-value for an int is 0 so if no bot was found then this will be 0.
+	if bot.Id > 0 {
+		botUser, err := bot.User()
+		if err != nil {
+			em := "An error occurred whilst registering your bot."
+			log.Printf("%s\n%s\n", em, err)
+			return errors.New(em)
+		}
+
+		// If there are bots and the bot we've retrieved is not owned by the current user then it has been taken by
+		// someone else.
+		if len(allBots) > 0 && botUser.Id != user.Id {
+			em := fmt.Sprintf("The bot name \"%s\" has already been used by another user. All bot names must be unique, please use another name.", args.BotName)
+			return errors.New(em)
+		}
+
+		exists, err := bot.DoesVersionExist(args.BotVersion)
+		if err != nil {
+			em := "An error occurred whilst registering your bot."
+			log.Printf("%s\n%s\n", em, err)
+			return errors.New(em)
+		}
+
+		if !exists {
+
+			bot, err = repository.RegisterBot(args.BotName, args.BotVersion, gameType, user, args.RPCEndpoint, args.ProgrammingLanguage, args.Website)
+			if err != nil {
+				em := "An error occurred whilst registering your bot."
+				log.Printf("%s\n%s\n", em, err)
+				return errors.New(em)
+			}
+
+			gt, err := bot.GameType()
+			if err != nil {
+				em := "An error occurred whilst registering your bot."
+				log.Printf("%s\n%s\n", em, err)
+				return errors.New(em)
+			}
+
+			responseMessage := fmt.Sprintf("A new version of your bot has been registered as %s (version: %s), good luck with %s!", bot.Name, bot.Version, gt.Name)
+			reply.Message = responseMessage
+		} else {
+			responseMessage := fmt.Sprintf(`Hello, %s. The version \"%s\" of your bot is already registered. No new games will
+		be scheduled but your bot will marked as online and if there are any outstanding games they will be
+		continued.`, bot.Name, bot.Version)
+			reply.Message = responseMessage
+		}
+	} else {
+		bot, err = repository.RegisterBot(args.BotName, args.BotVersion, gameType, user, args.RPCEndpoint, args.ProgrammingLanguage, args.Website)
+		if err != nil {
+			em := "An error occurred whilst registering your bot."
+			log.Printf("%s\n%s\n", em, err)
+			return errors.New(em)
+		}
+
+		gt, err := bot.GameType()
+		if err != nil {
+			em := "An error occurred whilst registering your bot."
+			log.Printf("%s\n%s\n", em, err)
+			return errors.New(em)
+		}
+
+		responseMessage := fmt.Sprintf("Hello, %s (version: %s), good luck with %s!", bot.Name, bot.Version, gt.Name)
+		reply.Message = responseMessage
 	}
 
 	gameManager, err := games.GetGameManager(gameType)
 	if err != nil {
-		return err
+		em := "An error occurred whilst registering your bot."
+		log.Printf("%s\n%s\n", em, err)
+		return errors.New(em)
 	}
 
 	games := gameManager.GenerateGames(bot)
 	for _, g := range games {
 		gameMove, err := g.NextGameMove()
 		if err != nil {
-			return err
+			em := "An error occurred whilst generating games for your bot."
+			log.Printf("%s\n%s\n", em, err)
+			return errors.New(em)
 		}
 		gameworker.QueueGameMove(gameMove)
 	}
-
-	reply.Message = "Hello, " + bot.Name + ", enjoy " + bot.GameType.Name + "!"
 
 	return nil
 }

@@ -1,11 +1,12 @@
 package repository
 
 import (
+	"database/sql"
+	"errors"
+	"fmt"
 	"log"
 	"math/rand"
 	"time"
-
-	_ "github.com/lib/pq"
 )
 
 type User struct {
@@ -44,9 +45,9 @@ func GenerateToken(n int) string {
 }
 
 func CreateUser(username string) (User, error) {
-	log.Print("CreateUser")
 	var userId int
 	db := GetDB()
+	token := GenerateToken(tokenLength)
 	err := db.QueryRow(`
 	INSERT INTO merknera_user (
 	  username
@@ -55,20 +56,21 @@ func CreateUser(username string) (User, error) {
 	  $1
 	, $2
 	) RETURNING id
-	`, username, GenerateToken(tokenLength)).Scan(&userId)
+	`, username, token).Scan(&userId)
 	if err != nil {
+		log.Printf("An error occurred in user.CreateUser():1:\n%s\n", err)
 		return User{}, err
 	}
 
 	user, err := GetUserById(userId)
 	if err != nil {
+		log.Printf("An error occurred in user.CreateUser():2:\n%s\n", err)
 		return User{}, err
 	}
 	return user, nil
 }
 
 func GetUserById(id int) (User, error) {
-	log.Print("GetUserById")
 	var user User
 	db := GetDB()
 	err := db.QueryRow(`
@@ -80,6 +82,7 @@ func GetUserById(id int) (User, error) {
 	WHERE id = $1
 	`, id).Scan(&user.Id, &user.Username, &user.Token)
 	if err != nil {
+		log.Printf("An error occurred in user.GetUserById():\n%s\n", err)
 		return User{}, err
 	}
 
@@ -87,7 +90,6 @@ func GetUserById(id int) (User, error) {
 }
 
 func GetUserByToken(token string) (User, error) {
-	log.Print("GetUserByToken")
 	var user User
 	db := GetDB()
 	err := db.QueryRow(`
@@ -99,6 +101,11 @@ func GetUserByToken(token string) (User, error) {
 	WHERE token = $1
 	`, token).Scan(&user.Id, &user.Username, &user.Token)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			em := fmt.Sprintf("User with Token \"%s\" is not currently registered with Merknera", token)
+			return User{}, errors.New(em)
+		}
+		log.Printf("An error occurred in user.GetUserByToken():\n%s\n", err)
 		return User{}, err
 	}
 

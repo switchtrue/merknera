@@ -3,6 +3,8 @@ package repository
 import (
 	"log"
 
+	"database/sql"
+
 	"github.com/mleonard87/merknera/rpchelper"
 )
 
@@ -15,15 +17,43 @@ const (
 )
 
 type Bot struct {
-	Id                  string
+	Id                  int
 	Name                string
 	Version             string
-	GameType            GameType
-	User                User
+	gameTypeId          int
+	gameType            GameType
+	userId              int
+	user                User
 	RPCEndpoint         string
 	ProgrammingLanguage string
 	Website             string
 	Status              BotStatus
+}
+
+func (b *Bot) GameType() (GameType, error) {
+	if b.gameType == (GameType{}) {
+		gt, err := GetGameTypeById(b.gameTypeId)
+		if err != nil {
+			log.Printf("An error occurred in bot.GameType():\n%s\n", err)
+			return GameType{}, err
+		}
+		b.gameType = gt
+	}
+
+	return b.gameType, nil
+}
+
+func (b *Bot) User() (User, error) {
+	if b.user == (User{}) {
+		u, err := GetUserById(b.userId)
+		if err != nil {
+			log.Printf("An error occurred in bot.User():\n%s\n", err)
+			return User{}, err
+		}
+		b.user = u
+	}
+
+	return b.user, nil
 }
 
 // Ping will make an RPC call to the Status.Ping method. If this does not return
@@ -33,11 +63,11 @@ func (b *Bot) Ping() bool {
 	err := rpchelper.Ping(b.RPCEndpoint)
 	if err != nil {
 		// If we can't ping the bot, assume its offline and return.
-		b.MarkOffline()
+		//b.MarkOffline()
 		return false
 	}
 
-	b.MarkOnline()
+	//b.MarkOnline()
 	return true
 }
 
@@ -49,6 +79,7 @@ func (b *Bot) setStatus(status BotStatus) error {
 	WHERE id = $2
 	`, string(status), b.Id).Scan()
 	if err != nil {
+		log.Printf("An error occurred in bot.setStatus():\n%s\n", err)
 		return err
 	}
 
@@ -67,8 +98,28 @@ func (b *Bot) MarkError() error {
 	return b.setStatus(BOT_STATUS_ERROR)
 }
 
+func (b *Bot) DoesVersionExist(version string) (bool, error) {
+	var botId int
+	db := GetDB()
+	err := db.QueryRow(`
+	SELECT
+	  id
+	FROM bot
+	WHERE name = $1
+	AND version = $2
+	`, b.Name, version).Scan(&botId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		log.Printf("An error occurred in bot.DoesVersionExist():\n%s\n", err)
+		return true, err
+	}
+
+	return true, nil
+}
+
 func RegisterBot(name string, version string, gameType GameType, user User, rpcEndpoint string, programmingLanguage string, website string) (Bot, error) {
-	log.Println("RegisterBot")
 	var botId int
 	db := GetDB()
 	err := db.QueryRow(`
@@ -93,21 +144,20 @@ func RegisterBot(name string, version string, gameType GameType, user User, rpcE
 	) RETURNING id
 	`, name, version, gameType.Id, user.Id, rpcEndpoint, programmingLanguage, website, string(BOT_STATUS_ONLINE)).Scan(&botId)
 	if err != nil {
+		log.Printf("An error occurred in bot.RegisterBot():1:\n%s\n", err)
 		return Bot{}, err
 	}
 
 	bot, err := GetBotById(botId)
 	if err != nil {
+		log.Printf("An error occurred in bot.RegisterBot():2:\n%s\n", err)
 		return Bot{}, err
 	}
 	return bot, nil
 }
 
 func GetBotById(id int) (Bot, error) {
-	log.Println("GetBotById")
 	var bot Bot
-	var gameTypeId int
-	var userId int
 	var status string
 	db := GetDB()
 	err := db.QueryRow(`
@@ -123,30 +173,46 @@ func GetBotById(id int) (Bot, error) {
 	, status
 	FROM bot
 	WHERE id = $1
-	`, id).Scan(&bot.Id, &bot.Name, &bot.Version, &gameTypeId, &userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &status)
+	`, id).Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &status)
 	if err != nil {
+		log.Printf("An error occurred in bot.GetBotById():\n%s\n", err)
 		return Bot{}, err
 	}
 	bot.Status = BotStatus(status)
 
-	user, err := GetUserById(userId)
+	return bot, nil
+}
+
+func GetBotByName(name string) (Bot, error) {
+	var bot Bot
+	var status string
+	db := GetDB()
+	err := db.QueryRow(`
+	SELECT
+	  id
+	, name
+	, version
+	, game_type_id
+	, user_id
+	, rpc_endpoint
+	, programming_language
+	, website
+	, status
+	FROM bot
+	WHERE name = $1
+	`, name).Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &status)
 	if err != nil {
+		if err != sql.ErrNoRows {
+			log.Printf("An error occurred in bot.GetBotByName():\n%s\n", err)
+		}
 		return Bot{}, err
 	}
-	bot.User = user
-
-	gameType, err := GetGameTypeById(gameTypeId)
-	if err != nil {
-		return Bot{}, err
-	}
-
-	bot.GameType = gameType
+	bot.Status = BotStatus(status)
 
 	return bot, nil
 }
 
 func ListBotsForGameType(gameType GameType) ([]Bot, error) {
-	log.Println("ListBotsForGameType")
 	db := GetDB()
 	rows, err := db.Query(`
 	SELECT
@@ -170,30 +236,19 @@ func ListBotsForGameType(gameType GameType) ([]Bot, error) {
 	for rows.Next() {
 		var bot Bot
 		var status string
-		err := rows.Scan(&bot.Id, &bot.Name, &bot.Version, &bot.GameType.Id, &bot.User.Id, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &status)
+		err := rows.Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &status)
 		if err != nil {
+			log.Printf("An error occurred in bot.ListBotsForGameType():\n%s\n", err)
 			return botList, err
 		}
 		bot.Status = BotStatus(status)
 		botList = append(botList, bot)
 	}
 
-	for _, b := range botList {
-		b.GameType, err = GetGameTypeById(b.GameType.Id)
-		if err != nil {
-			return []Bot{}, err
-		}
-		b.User, err = GetUserById(b.User.Id)
-		if err != nil {
-			return []Bot{}, err
-		}
-	}
-
 	return botList, nil
 }
 
 func ListBots() ([]Bot, error) {
-	log.Println("ListBots")
 	db := GetDB()
 	rows, err := db.Query(`
 	SELECT
@@ -209,6 +264,7 @@ func ListBots() ([]Bot, error) {
 	FROM bot b
 	`)
 	if err != nil {
+		log.Printf("An error occurred in bot.ListBots():1:\n%s\n", err)
 		return []Bot{}, err
 	}
 
@@ -216,23 +272,13 @@ func ListBots() ([]Bot, error) {
 	for rows.Next() {
 		var bot Bot
 		var status string
-		err := rows.Scan(&bot.Id, &bot.Name, &bot.Version, &bot.GameType.Id, &bot.User.Id, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &status)
+		err := rows.Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &status)
 		if err != nil {
+			log.Printf("An error occurred in bot.ListBots():2:\n%s\n", err)
 			return botList, err
 		}
 		bot.Status = BotStatus(status)
 		botList = append(botList, bot)
-	}
-
-	for _, b := range botList {
-		b.GameType, err = GetGameTypeById(b.GameType.Id)
-		if err != nil {
-			return []Bot{}, err
-		}
-		b.User, err = GetUserById(b.User.Id)
-		if err != nil {
-			return []Bot{}, err
-		}
 	}
 
 	return botList, nil

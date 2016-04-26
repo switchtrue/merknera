@@ -2,17 +2,16 @@ package repository
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 	"log"
 )
 
 type GameStatus string
 
 type Game struct {
-	Id       int
-	GameType GameType
-	Status   GameStatus
+	Id         int
+	gameTypeId int
+	gameType   GameType
+	Status     GameStatus
 }
 
 const (
@@ -21,9 +20,21 @@ const (
 	GAME_STATUS_COMPLETE    GameStatus = "COMPLETE"
 )
 
+func (g *Game) GameType() (GameType, error) {
+	if g.gameType == (GameType{}) {
+		gt, err := GetGameTypeById(g.gameTypeId)
+		if err != nil {
+			log.Printf("An error occurred in game.GameType():\n%s\n", err)
+			return GameType{}, err
+		}
+		g.gameType = gt
+	}
+
+	return g.gameType, nil
+}
+
 func (g *Game) GetNextMoveId() (int, error) {
 	db := GetDB()
-	log.Println("GetNextMoveId")
 	var nextMoveId int
 	err := db.QueryRow(`
 	SELECT m.id
@@ -36,22 +47,24 @@ func (g *Game) GetNextMoveId() (int, error) {
 	AND m.status = $2
 	`, g.Id, string(GAMEMOVE_STATUS_AWAITING)).Scan(&nextMoveId)
 	if err != nil {
-		return -1, errors.New("GetNextMoveId: " + err.Error())
+		log.Printf("An error occurred in game.GetNextMoveId():\n%s\n", err)
+		return -1, err
 	}
 
 	return nextMoveId, nil
 }
 
 func (g *Game) NextGameMove() (GameMove, error) {
-	fmt.Println("NextGameMove")
 	moveId, err := g.GetNextMoveId()
 	if err != nil {
-		return GameMove{}, errors.New("NextGameMove: " + err.Error())
+		log.Printf("An error occurred in game.NextGameMove():1:\n%s\n", err)
+		return GameMove{}, err
 	}
 
 	gameMove, err := GetGameMoveById(moveId)
 	if err != nil {
-		return gameMove, errors.New("NextGameMove: " + err.Error())
+		log.Printf("An error occurred in game.NextGameMove():2:\n%s\n", err)
+		return gameMove, err
 	}
 
 	return gameMove, nil
@@ -59,7 +72,6 @@ func (g *Game) NextGameMove() (GameMove, error) {
 
 func (g *Game) GetWinningMoveId() (int, error) {
 	db := GetDB()
-	log.Println("GetWinningMoveId")
 	var nextMoveId int
 	err := db.QueryRow(`
 	SELECT
@@ -74,22 +86,24 @@ func (g *Game) GetWinningMoveId() (int, error) {
 	LIMIT 1
 	`, g.Id).Scan(&nextMoveId)
 	if err != nil {
-		return -1, errors.New("GetWinningMoveId: " + err.Error())
+		log.Printf("An error occurred in game.GetWinningMoveId():\n%s\n", err)
+		return -1, err
 	}
 
 	return nextMoveId, nil
 }
 
 func (g *Game) WinningMove() (GameMove, error) {
-	fmt.Println("WinningMove")
 	moveId, err := g.GetWinningMoveId()
 	if err != nil {
-		return GameMove{}, errors.New("WinningMove: " + err.Error())
+		log.Printf("An error occurred in game.GetWinningMoveId():1:\n%s\n", err)
+		return GameMove{}, err
 	}
 
 	gameMove, err := GetGameMoveById(moveId)
 	if err != nil {
-		return gameMove, errors.New("WinningMove: " + err.Error())
+		log.Printf("An error occurred in game.GetWinningMoveId():2:\n%s\n", err)
+		return gameMove, err
 	}
 
 	return gameMove, nil
@@ -112,6 +126,7 @@ func (g *Game) Players() ([]GameBot, error) {
 		rows.Scan(&gameBotId)
 		gameBot, err = GetGameBotById(gameBotId)
 		if err != nil {
+			log.Printf("An error occurred in game.Players():\n%s\n", err)
 			return []GameBot{}, err
 		}
 		gameBotList = append(gameBotList, gameBot)
@@ -130,6 +145,7 @@ func (g *Game) GameState() (string, error) {
 	WHERE id = $1
 	`, g.Id).Scan(&gs)
 	if err != nil {
+		log.Printf("An error occurred in game.GameState():\n%s\n", err)
 		return "", err
 	}
 
@@ -139,6 +155,7 @@ func (g *Game) GameState() (string, error) {
 func (g *Game) SetGameState(gs interface{}) error {
 	gsB, err := json.Marshal(gs)
 	if err != nil {
+		log.Printf("An error occurred in game.SetGameState():1:\n%s\n", err)
 		return err
 	}
 
@@ -149,6 +166,7 @@ func (g *Game) SetGameState(gs interface{}) error {
 	WHERE id = $2
 	`, string(gsB), g.Id)
 	if err != nil {
+		log.Printf("An error occurred in game.SetGameState():2:\n%s\n", err)
 		return err
 	}
 
@@ -163,6 +181,7 @@ func (g *Game) setStatus(status GameStatus) error {
 	WHERE id = $2
 	`, string(status), g.Id)
 	if err != nil {
+		log.Printf("An error occurred in game.setStatus():\n%s\n", err)
 		return err
 	}
 
@@ -178,11 +197,11 @@ func (g *Game) MarkComplete() error {
 }
 
 func CreateGame(gameType GameType, initialGameState interface{}) (Game, error) {
-	log.Println("CreateGame")
 	var gameId int
 
 	igsB, err := json.Marshal(initialGameState)
 	if err != nil {
+		log.Printf("An error occurred in game.CreateGame():1:\n%s\n", err)
 		return Game{}, err
 	}
 
@@ -197,20 +216,20 @@ func CreateGame(gameType GameType, initialGameState interface{}) (Game, error) {
 	) RETURNING id
 	`, gameType.Id, string(igsB)).Scan(&gameId)
 	if err != nil {
+		log.Printf("An error occurred in game.CreateGame():2:\n%s\n", err)
 		return Game{}, err
 	}
 
 	game, err := GetGameById(gameId)
 	if err != nil {
+		log.Printf("An error occurred in game.CreateGame():3:\n%s\n", err)
 		return game, err
 	}
 	return game, nil
 }
 
 func GetGameById(id int) (Game, error) {
-	log.Println("GetGameById")
 	var game Game
-	var gameTypeId int
 	var status string
 	db := GetDB()
 	err := db.QueryRow(`
@@ -220,12 +239,12 @@ func GetGameById(id int) (Game, error) {
 	, g.game_type_id
 	FROM game g
 	WHERE g.id = $1
-	`, id).Scan(&game.Id, &status, &gameTypeId)
+	`, id).Scan(&game.Id, &status, &game.gameTypeId)
 	if err != nil {
+		log.Printf("An error occurred in game.GetGameById():\n%s\n", err)
 		return Game{}, err
 	}
 	game.Status = GameStatus(status)
-	game.GameType, _ = GetGameTypeById(gameTypeId)
 
 	return game, nil
 }

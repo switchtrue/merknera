@@ -32,6 +32,7 @@ type RegistrationReply struct {
 type RegistrationService struct{}
 
 func (h *RegistrationService) Register(r *http.Request, args *RegistrationArgs, reply *RegistrationReply) error {
+	log.Printf("Registering %s (%s)\n", args.BotName, args.BotVersion)
 	gameType, err := repository.GetGameTypeByMnemonic(args.Game)
 	if err != nil {
 		return err

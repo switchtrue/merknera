@@ -65,21 +65,32 @@ func (gmw GameMoveWorker) Start() {
 					log.Fatal(err)
 				}
 
-				fmt.Printf("Bot: %s Endpoint: %s For: %s\n", bot.Name, bot.RPCEndpoint, gameType.Name)
-
 				// If the Bot is marked as ERROR or OFFLINE then don't process this move.
 				if bot.Status != repository.BOT_STATUS_ONLINE {
 					return
 				}
 
 				// Ping the bot to ensure its still online.
-				success := bot.Ping()
+				beforeStatus := bot.Status
+				success, err := bot.Ping()
+				if err != nil {
+					log.Fatal(err)
+				}
 				if success == false {
-					err := bot.MarkOffline()
+					bot.MarkOffline()
+					return
+				}
+
+				// If the bots status has changed and its now online then re-queue any awaiting moves
+				// for this bot.
+				if beforeStatus != bot.Status && bot.Status == repository.BOT_STATUS_ONLINE {
+					awaitingMoves, err := repository.GetAwaitingMovesForBot(bot)
 					if err != nil {
 						log.Fatal(err)
 					}
-					return
+					for _, gm := range awaitingMoves {
+						QueueGameMove(gm)
+					}
 				}
 
 				gameManager, err := games.GetGameManager(gameType)

@@ -88,3 +88,60 @@ func GetGameMoveById(id int) (GameMove, error) {
 
 	return gameMove, nil
 }
+
+func GetAwaitingMoves() ([]GameMove, error) {
+	db := GetDB()
+	rows, err := db.Query(`
+	SELECT id
+	FROM move
+	WHERE status = $1
+	`, string(GAMEMOVE_STATUS_AWAITING))
+	if err != nil {
+		log.Printf("An error occurred in gamemove.GetAwaitingMoves():1:\n%s\n", err)
+		return []GameMove{}, err
+	}
+
+	var gameMoves []GameMove
+	for rows.Next() {
+		var gameMoveId int
+		rows.Scan(&gameMoveId)
+		gameMove, err := GetGameMoveById(gameMoveId)
+		if err != nil {
+			log.Printf("An error occurred in gamemove.GetAwaitingMoves():2:\n%s\n", err)
+			return []GameMove{}, err
+		}
+		gameMoves = append(gameMoves, gameMove)
+	}
+
+	return gameMoves, nil
+}
+
+func GetAwaitingMovesForBot(b Bot) ([]GameMove, error) {
+	db := GetDB()
+	rows, err := db.Query(`
+	SELECT m.id
+	FROM move m
+	JOIN game_bot gb
+	ON m.game_bot_id = gb.id
+	WHERE m.status = $1
+	AND gb.bot_id = $2
+	`, string(GAMEMOVE_STATUS_AWAITING), b.Id)
+	if err != nil {
+		log.Printf("An error occurred in gamemove.GetAwaitingMovesForBot():1:\n%s\n", err)
+		return []GameMove{}, err
+	}
+
+	var gameMoves []GameMove
+	for rows.Next() {
+		var gameMoveId int
+		rows.Scan(&gameMoveId)
+		gameMove, err := GetGameMoveById(gameMoveId)
+		if err != nil {
+			log.Printf("An error occurred in gamemove.GetAwaitingMovesForBot():2:\n%s\n", err)
+			return []GameMove{}, err
+		}
+		gameMoves = append(gameMoves, gameMove)
+	}
+
+	return gameMoves, nil
+}

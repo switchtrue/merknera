@@ -32,6 +32,15 @@ func Init() {
 		b.Ping()
 	}
 
+	// Find all moves that are currently awaiting play and queue them.
+	awaitingMoves, err := repository.GetAwaitingMoves()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, gm := range awaitingMoves {
+		gameworker.QueueGameMove(gm)
+	}
+
 	fmt.Println("Merknera is now listening on localhost:8080")
 	http.ListenAndServe(":8080", nil)
 }

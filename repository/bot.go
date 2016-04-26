@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"log"
 
 	"database/sql"
@@ -59,25 +60,35 @@ func (b *Bot) User() (User, error) {
 // Ping will make an RPC call to the Status.Ping method. If this does not return
 // then mark te bot as offline and will not participate in any further games until
 // it is found to be online again.
-func (b *Bot) Ping() bool {
+func (b *Bot) Ping() (bool, error) {
+	fmt.Printf("Pinging %s\n", b.Name)
 	err := rpchelper.Ping(b.RPCEndpoint)
 	if err != nil {
-		// If we can't ping the bot, assume its offline and return.
-		//b.MarkOffline()
-		return false
+		err2 := b.MarkOffline()
+		if err2 != nil {
+			log.Printf("An error occurred in bot.Ping():1:\n%s\n", err2)
+			return false, err2
+		}
+		log.Printf("An error occurred in bot.Ping():2:\n%s\n", err)
+		return false, err
 	}
 
-	//b.MarkOnline()
-	return true
+	err = b.MarkOnline()
+	if err != nil {
+		log.Printf("An error occurred in bot.Ping():3:\n%s\n", err)
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (b *Bot) setStatus(status BotStatus) error {
 	db := GetDB()
-	err := db.QueryRow(`
+	_, err := db.Exec(`
 	UPDATE bot
 	SET status = $1
 	WHERE id = $2
-	`, string(status), b.Id).Scan()
+	`, string(status), b.Id)
 	if err != nil {
 		log.Printf("An error occurred in bot.setStatus():\n%s\n", err)
 		return err
@@ -87,14 +98,17 @@ func (b *Bot) setStatus(status BotStatus) error {
 }
 
 func (b *Bot) MarkOffline() error {
+	b.Status = BOT_STATUS_OFFLINE
 	return b.setStatus(BOT_STATUS_OFFLINE)
 }
 
 func (b *Bot) MarkOnline() error {
+	b.Status = BOT_STATUS_ONLINE
 	return b.setStatus(BOT_STATUS_ONLINE)
 }
 
 func (b *Bot) MarkError() error {
+	b.Status = BOT_STATUS_ERROR
 	return b.setStatus(BOT_STATUS_ERROR)
 }
 

@@ -132,17 +132,12 @@ func (gmw GameMoveWorker) Start() {
 						log.Fatal(err)
 					}
 
-					err = game.SetGameState(gs)
-					if err != nil {
-						log.Fatal(err)
-					}
-
 					if !winner {
 						nextBot, err := gameManager.GetGameBotForNextMove(work.GameMove)
 						if err != nil {
 							log.Fatal(err)
 						}
-						nextMove, err := repository.CreateGameMove(nextBot)
+						nextMove, err := repository.CreateGameMove(nextBot, gs)
 						if err != nil {
 							log.Fatal(err)
 						}
@@ -172,6 +167,11 @@ func (gmw GameMoveWorker) Start() {
 								log.Fatal(err)
 							}
 						}
+					}
+
+					err = work.GameMove.SetGameState(gs)
+					if err != nil {
+						log.Fatal(err)
 					}
 				}
 

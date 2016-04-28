@@ -132,6 +132,62 @@ func (b *Bot) DoesVersionExist(version string) (bool, error) {
 	return true, nil
 }
 
+func (b *Bot) GamesPlayedCount() (int, error) {
+	var count int
+	db := GetDB()
+	err := db.QueryRow(`
+	SELECT COUNT(*)
+	FROM game_bot
+	WHERE bot_id = $1
+	`, b.Id).Scan(&count)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, nil
+		}
+		log.Printf("An error occurred in bot.GamesPlayedCount():\n%s\n", err)
+		return 0, err
+	}
+
+	return count, nil
+}
+
+func (b *Bot) GamesWonCount() (int, error) {
+	var count int
+	db := GetDB()
+	err := db.QueryRow(`
+	SELECT COUNT(*)
+	FROM (
+	  SELECT
+	    gb.*
+	  , (
+	    SELECT
+	      CASE
+		WHEN gb2.bot_id = gb.bot_id THEN 1
+		ELSE 0
+	      END
+	    FROM game_bot gb2
+	    JOIN move m
+	      ON gb2.id = m.game_bot_id
+	    WHERE gb2.game_id = gb.game_id
+	    ORDER BY m.created_datetime
+	    LIMIT 1
+	  ) winner
+	  FROM game_bot gb
+	  WHERE gb.bot_id = $1
+	) t
+	WHERE t.winner = 1
+	`, b.Id).Scan(&count)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, nil
+		}
+		log.Printf("An error occurred in bot.GamesWonCount():\n%s\n", err)
+		return 0, err
+	}
+
+	return count, nil
+}
+
 func RegisterBot(name string, version string, gameType GameType, user User, rpcEndpoint string, programmingLanguage string, website string, description string) (Bot, error) {
 	var botId int
 	db := GetDB()

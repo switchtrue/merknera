@@ -16,6 +16,29 @@ func MerkneraSchema() *graphql.Schema {
 				return repository.ListBots()
 			},
 		},
+		"gameList": &graphql.Field{
+			Type:        graphql.NewList(GameType),
+			Description: "List of bots",
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				return repository.ListGames()
+			},
+		},
+		"game": &graphql.Field{
+			Type:        GameType,
+			Description: "List of bots",
+			Args: graphql.FieldConfigArgument{
+				"id": &graphql.ArgumentConfig{
+					Type: graphql.Int,
+				},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				idQuery, isOK := p.Args["id"].(int)
+				if isOK {
+					return repository.GetGameById(idQuery)
+				}
+				return nil, nil
+			},
+		},
 	}
 	rootQuery := graphql.ObjectConfig{Name: "RootQuery", Fields: fields}
 	schemaConfig := graphql.SchemaConfig{Query: graphql.NewObject(rootQuery)}

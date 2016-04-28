@@ -1,6 +1,9 @@
 package repository
 
-import "log"
+import (
+	"encoding/json"
+	"log"
+)
 
 type GameMove struct {
 	Id        int
@@ -44,24 +47,70 @@ func (gm *GameMove) MarkComplete() error {
 	return nil
 }
 
-func CreateGameMove(gameBot GameBot) (GameMove, error) {
-	var gameMoveId int
+func (gm *GameMove) SetGameState(gs interface{}) error {
+	gsB, err := json.Marshal(gs)
+	if err != nil {
+		log.Printf("An error occurred in gamemove.SetGameState():1:\n%s\n", err)
+		return err
+	}
+
 	db := GetDB()
+	_, err = db.Exec(`
+	UPDATE move
+	SET game_state = $1
+	WHERE id = $2
+	`, string(gsB), gm.Id)
+	if err != nil {
+		log.Printf("An error occurred in gamemove.SetGameState():2:\n%s\n", err)
+		return err
+	}
+
+	return nil
+}
+
+func (gm *GameMove) GameState() (string, error) {
+	db := GetDB()
+	var gs string
 	err := db.QueryRow(`
-	INSERT INTO move (
-	  game_bot_id
-	) VALUES (
-	  $1
-	) RETURNING id
-	`, gameBot.Id).Scan(&gameMoveId)
+	SELECT
+	  m.game_state
+	FROM move m
+	WHERE m.id = $1
+	`, gm.Id).Scan(&gs)
+	if err != nil {
+		log.Printf("An error occurred in gamemove.GameState():\n%s\n", err)
+		return "", err
+	}
+
+	return gs, nil
+}
+
+func CreateGameMove(gameBot GameBot, currentGameState interface{}) (GameMove, error) {
+	gsB, err := json.Marshal(currentGameState)
 	if err != nil {
 		log.Printf("An error occurred in gamemove.CreateGameMove():1:\n%s\n", err)
 		return GameMove{}, err
 	}
 
-	gameMove, err := GetGameMoveById(gameMoveId)
+	var gameMoveId int
+	db := GetDB()
+	err = db.QueryRow(`
+	INSERT INTO move (
+	  game_bot_id
+	, game_state
+	) VALUES (
+	  $1
+	, $2
+	) RETURNING id
+	`, gameBot.Id, string(gsB)).Scan(&gameMoveId)
 	if err != nil {
 		log.Printf("An error occurred in gamemove.CreateGameMove():2:\n%s\n", err)
+		return GameMove{}, err
+	}
+
+	gameMove, err := GetGameMoveById(gameMoveId)
+	if err != nil {
+		log.Printf("An error occurred in gamemove.CreateGameMove():3:\n%s\n", err)
 		return GameMove{}, err
 	}
 	return gameMove, nil

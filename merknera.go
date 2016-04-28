@@ -7,6 +7,7 @@ import (
 
 	"github.com/graphql-go/handler"
 	"github.com/mleonard87/merknera/gameworker"
+	"github.com/mleonard87/merknera/graphql"
 	"github.com/mleonard87/merknera/repository"
 	"github.com/mleonard87/merknera/schema"
 	"github.com/mleonard87/merknera/services"
@@ -24,7 +25,7 @@ func registerRPCHandler() {
 func registerGraphQLHandler() {
 	schema := schema.MerkneraSchema()
 
-	h := handler.New(&handler.Config{
+	h := graphql.NewCORSHandler(&handler.Config{
 		Schema: schema,
 		Pretty: true,
 	})

@@ -298,8 +298,7 @@ func getMarkForPlaySequence(ps int) string {
 }
 
 func createGameWithPlayers(gameType repository.GameType, playerOne *repository.Bot, playerTwo *repository.Bot) (repository.Game, error) {
-	initialGameState := TicTacToeGameState(make([]string, 9, 9))
-	game, err := repository.CreateGame(gameType, initialGameState)
+	game, err := repository.CreateGame(gameType)
 	if err != nil {
 		return game, err
 	}
@@ -328,7 +327,8 @@ func createFirstGameMove(game repository.Game) error {
 		return err
 	}
 	firstPlayer := players[0]
-	_, err = repository.CreateGameMove(firstPlayer)
+	initialGameState := make([]string, 9, 9)
+	_, err = repository.CreateGameMove(firstPlayer, initialGameState)
 	if err != nil {
 		return err
 	}

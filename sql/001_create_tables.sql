@@ -59,7 +59,6 @@ CREATE TABLE game (
   id               SERIAL PRIMARY KEY NOT NULL
 , game_type_id     INTEGER REFERENCES game_type (id) NOT NULL
 , status           VARCHAR(50) DEFAULT 'NOT STARTED' NOT NULL CHECK (status IN ('NOT STARTED', 'IN PROGRESS', 'COMPLETE'))
-, state            JSONB NOT NULL
 , created_datetime TIMESTAMP WITH TIME ZONE DEFAULT (now()) NOT NULL
 );
 
@@ -82,6 +81,7 @@ CREATE TABLE move (
   id               SERIAL PRIMARY KEY NOT NULL
 , game_bot_id      INTEGER REFERENCES game_bot (id) NOT NULL
 , status           VARCHAR(20) DEFAULT 'AWAITING' NOT NULL CHECK (status IN ('AWAITING', 'COMPLETE'))
+, game_state       JSONB NOT NULL
 , created_datetime TIMESTAMP WITH TIME ZONE DEFAULT (now()) NOT NULL
 );
 

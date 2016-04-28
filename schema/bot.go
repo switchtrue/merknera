@@ -110,6 +110,26 @@ var BotType = graphql.NewObject(
 					return nil, nil
 				},
 			},
+			"gamesPlayed": &graphql.Field{
+				Type:        graphql.Int,
+				Description: "The number of games this bot has played.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					if bot, ok := p.Source.(repository.Bot); ok {
+						return bot.GamesPlayedCount()
+					}
+					return nil, nil
+				},
+			},
+			"gamesWon": &graphql.Field{
+				Type:        graphql.Int,
+				Description: "The number of games this bot has won.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					if bot, ok := p.Source.(repository.Bot); ok {
+						return bot.GamesWonCount()
+					}
+					return nil, nil
+				},
+			},
 		},
 	},
 )

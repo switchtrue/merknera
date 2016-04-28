@@ -30,16 +30,6 @@ var UserType = graphql.NewObject(
 					return nil, nil
 				},
 			},
-			"token": &graphql.Field{
-				Type:        graphql.String,
-				Description: "The token for this user used to authenticate with Merknera.",
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					if u, ok := p.Source.(repository.User); ok {
-						return u.Token, nil
-					}
-					return nil, nil
-				},
-			},
 		},
 	},
 )

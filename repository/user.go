@@ -12,7 +12,6 @@ import (
 type User struct {
 	Id       int
 	Username string
-	Token    string
 }
 
 // Token generator taken from https://stackoverflow.com/questions/22892120/how-to-generate-a-random-string-of-a-fixed-length-in-golang
@@ -51,10 +50,8 @@ func CreateUser(username string) (User, error) {
 	err := db.QueryRow(`
 	INSERT INTO merknera_user (
 	  username
-	, token
 	) VALUES (
 	  $1
-	, $2
 	) RETURNING id
 	`, username, token).Scan(&userId)
 	if err != nil {
@@ -62,9 +59,23 @@ func CreateUser(username string) (User, error) {
 		return User{}, err
 	}
 
-	user, err := GetUserById(userId)
+	_, err = db.Exec(`
+	INSERT INTO merknera_user_token (
+	  merknera_user_id
+	, token
+	) VALUES (
+	  $1
+	, $2
+	)
+	`, userId, token)
 	if err != nil {
 		log.Printf("An error occurred in user.CreateUser():2:\n%s\n", err)
+		return User{}, err
+	}
+
+	user, err := GetUserById(userId)
+	if err != nil {
+		log.Printf("An error occurred in user.CreateUser():3:\n%s\n", err)
 		return User{}, err
 	}
 	return user, nil
@@ -77,10 +88,9 @@ func GetUserById(id int) (User, error) {
 	SELECT
 	  id
 	, username
-	, token
 	FROM merknera_user
 	WHERE id = $1
-	`, id).Scan(&user.Id, &user.Username, &user.Token)
+	`, id).Scan(&user.Id, &user.Username)
 	if err != nil {
 		log.Printf("An error occurred in user.GetUserById():\n%s\n", err)
 		return User{}, err
@@ -94,12 +104,13 @@ func GetUserByToken(token string) (User, error) {
 	db := GetDB()
 	err := db.QueryRow(`
 	SELECT
-	  id
-	, username
-	, token
-	FROM merknera_user
+	  mu.id
+	, mu.username
+	FROM merknera_user_token mut
+	JOIN merknera_user mu
+	  ON mut.merknera_user_id = mu.id
 	WHERE token = $1
-	`, token).Scan(&user.Id, &user.Username, &user.Token)
+	`, token).Scan(&user.Id, &user.Username)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			em := fmt.Sprintf("User with Token \"%s\" is not currently registered with Merknera", token)

@@ -5,7 +5,6 @@ DROP TABLE bot;
 DROP TABLE game_type;
 DROP TABLE merknera_user;
  
-
 CREATE TABLE merknera_user (
   id               SERIAL PRIMARY KEY NOT NULL
 , username         VARCHAR(250) UNIQUE NOT NULL
@@ -15,7 +14,16 @@ CREATE TABLE merknera_user (
 
 CREATE INDEX ON merknera_user (username);
 
-CREATE INDEX ON merknera_user (token);
+CREATE TABLE merknera_user_token (
+  id               SERIAL PRIMARY KEY NOT NULL
+, merknera_user_id INTEGER REFERENCES merknera_user (id) NOT NULL
+, token            CHAR(50) UNIQUE NOT NULL
+, status           VARCHAR(20) NOT NULL CHECK (status IN ('CURRENT'))
+);
+
+CREATE INDEX ON merknera_user_token (merknera_user_id);
+
+CREATE INDEX ON merknera_user_token (token);
 
 CREATE TABLE game_type (
   id               SERIAL PRIMARY KEY NOT NULL

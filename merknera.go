@@ -18,7 +18,6 @@ func registerRPCHandler() {
 	s := rpc.NewServer()
 	s.RegisterCodec(json.NewCodec(), "application/json")
 	s.RegisterService(new(services.RegistrationService), "")
-	s.RegisterService(new(services.UserService), "")
 	http.Handle("/rpc", s)
 }
 

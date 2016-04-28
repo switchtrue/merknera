@@ -3,12 +3,12 @@ DROP TABLE game_bot;
 DROP TABLE game;
 DROP TABLE bot;
 DROP TABLE game_type;
+DROP TABLE merknera_user_token;
 DROP TABLE merknera_user;
  
 CREATE TABLE merknera_user (
   id               SERIAL PRIMARY KEY NOT NULL
 , username         VARCHAR(250) UNIQUE NOT NULL
-, token            CHAR(50) UNIQUE NOT NULL
 , created_datetime TIMESTAMP WITH TIME ZONE DEFAULT (now()) NOT NULL
 );
 
@@ -18,7 +18,7 @@ CREATE TABLE merknera_user_token (
   id               SERIAL PRIMARY KEY NOT NULL
 , merknera_user_id INTEGER REFERENCES merknera_user (id) NOT NULL
 , token            CHAR(50) UNIQUE NOT NULL
-, status           VARCHAR(20) NOT NULL CHECK (status IN ('CURRENT'))
+, status           VARCHAR(20) DEFAULT 'CURRENT' NOT NULL CHECK (status IN ('CURRENT'))
 );
 
 CREATE INDEX ON merknera_user_token (merknera_user_id);

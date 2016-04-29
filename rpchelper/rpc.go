@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 )
 
 const (
@@ -39,7 +40,10 @@ func Ping(rpcEndpoint string) error {
 		return err
 	}
 
-	client := &http.Client{}
+	timeout := time.Duration(10 * time.Second)
+	client := &http.Client{
+		Timeout: timeout,
+	}
 
 	req, err := http.NewRequest("POST", rpcEndpoint, bytes.NewBuffer(jsonBody))
 	if err != nil {

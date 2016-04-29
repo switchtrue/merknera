@@ -44,7 +44,7 @@ CREATE TABLE bot (
 , programming_language VARCHAR(250)
 , website              VARCHAR(500) NULL
 , description          VARCHAR(1000) NULL
-, status               VARCHAR(20) NOT NULL CHECK (status IN ('ONLINE', 'OFFLINE', 'ERROR'))
+, status               VARCHAR(20) NOT NULL CHECK (status IN ('ONLINE', 'OFFLINE', 'ERROR', 'SUPERSEDED))
 , created_datetime     TIMESTAMP WITH TIME ZONE DEFAULT (now()) NOT NULL
 , UNIQUE(name, version)
 );

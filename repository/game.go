@@ -1,6 +1,9 @@
 package repository
 
-import "log"
+import (
+	"errors"
+	"log"
+)
 
 type GameStatus string
 
@@ -91,6 +94,9 @@ func (g *Game) GetWinningMoveId() (int, error) {
 }
 
 func (g *Game) WinningMove() (GameMove, error) {
+	if g.Status != GAME_STATUS_COMPLETE {
+		return GameMove{}, errors.New("This game is not yet complete. You should not call WinningMove() on an uncomplete game.")
+	}
 	moveId, err := g.GetWinningMoveId()
 	if err != nil {
 		log.Printf("An error occurred in game.GetWinningMoveId():1:\n%s\n", err)
@@ -187,6 +193,7 @@ func (g *Game) Moves() ([]GameMove, error) {
 	JOIN move m
 	  ON gb.id = m.game_bot_id
 	WHERE gb.game_id = $1
+	ORDER BY m.created_datetime
 	`, g.Id)
 	if err != nil {
 		log.Printf("An error occurred in game.Moves():1:\n%s\n", err)

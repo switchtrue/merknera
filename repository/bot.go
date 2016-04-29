@@ -61,6 +61,7 @@ func (b *Bot) User() (User, error) {
 // then mark te bot as offline and will not participate in any further games until
 // it is found to be online again.
 func (b *Bot) Ping() (bool, error) {
+	log.Printf("Pinging %s on %s\n", b.Name, b.RPCEndpoint)
 	err := rpchelper.Ping(b.RPCEndpoint)
 	if err != nil {
 		err2 := b.MarkOffline()
@@ -68,8 +69,10 @@ func (b *Bot) Ping() (bool, error) {
 			log.Printf("An error occurred in bot.Ping():1:\n%s\n", err2)
 			return false, err2
 		}
-		log.Printf("An error occurred in bot.Ping():2:\n%s\n", err)
-		return false, err
+		// This is actually fine. If we can't reach the bot it gets marked
+		// as offline and all is good.
+		log.Printf("Ping of %s complete - OFFLINE\n", b.Name)
+		return false, nil
 	}
 
 	err = b.MarkOnline()
@@ -78,6 +81,7 @@ func (b *Bot) Ping() (bool, error) {
 		return false, err
 	}
 
+	log.Printf("Ping of %s complete - ONLINE\n", b.Name)
 	return true, nil
 }
 
@@ -132,12 +136,49 @@ func (b *Bot) DoesVersionExist(version string) (bool, error) {
 	return true, nil
 }
 
+func (b *Bot) GamesPlayed() ([]Game, error) {
+	db := GetDB()
+	rows, err := db.Query(`
+	SELECT
+	  g.id
+	, g.game_type_id
+	, g.status
+	FROM game_bot gb
+	JOIN game g
+	  ON gb.game_id = g.id
+	 AND g.status = 'COMPLETE'
+	WHERE bot_id = $1
+	`, b.Id)
+	if err != nil {
+		log.Printf("An error occurred in bot.GamesPlayedCount():\n%s\n", err)
+		return []Game{}, err
+	}
+
+	var gameList []Game
+	for rows.Next() {
+		var game Game
+		var status string
+		err := rows.Scan(&game.Id, &game.gameTypeId, &status)
+		if err != nil {
+			log.Printf("An error occurred in bot.ListBotsForGameType():\n%s\n", err)
+			return gameList, err
+		}
+		game.Status = GameStatus(status)
+		gameList = append(gameList, game)
+	}
+
+	return gameList, nil
+}
+
 func (b *Bot) GamesPlayedCount() (int, error) {
 	var count int
 	db := GetDB()
 	err := db.QueryRow(`
 	SELECT COUNT(*)
-	FROM game_bot
+	FROM game_bot gb
+	JOIN game g
+	  ON gb.game_id = g.id
+	 AND g.status = 'COMPLETE'
 	WHERE bot_id = $1
 	`, b.Id).Scan(&count)
 	if err != nil {
@@ -162,17 +203,20 @@ func (b *Bot) GamesWonCount() (int, error) {
 	  , (
 	    SELECT
 	      CASE
-		WHEN gb2.bot_id = gb.bot_id THEN 1
+                WHEN gb2.bot_id = gb.bot_id THEN 1
 		ELSE 0
 	      END
 	    FROM game_bot gb2
 	    JOIN move m
 	      ON gb2.id = m.game_bot_id
 	    WHERE gb2.game_id = gb.game_id
-	    ORDER BY m.created_datetime
+	    ORDER BY m.created_datetime DESC
 	    LIMIT 1
 	  ) winner
 	  FROM game_bot gb
+          JOIN game g
+            ON gb.game_id = g.id
+           AND g.status = 'COMPLETE'
 	  WHERE gb.bot_id = $1
 	) t
 	WHERE t.winner = 1
@@ -301,6 +345,7 @@ func ListBotsForGameType(gameType GameType) ([]Bot, error) {
 	, b.status
 	FROM bot b
 	WHERE b.game_type_id = $1
+	ORDER BY b.name, b.version
 	`, gameType.Id)
 	if err != nil {
 		return []Bot{}, err
@@ -337,6 +382,7 @@ func ListBots() ([]Bot, error) {
 	, b.description
 	, b.status
 	FROM bot b
+	ORDER BY b.name, b.version
 	`)
 	if err != nil {
 		log.Printf("An error occurred in bot.ListBots():1:\n%s\n", err)

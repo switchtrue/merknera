@@ -45,11 +45,12 @@ func (gmw GameMoveWorker) Start() {
 
 			select {
 			case work := <-gmw.GameMoveRequestWork:
+				log.Printf("[wkr%d] Working (move id: %d)\n", gmw.Id, work.GameMove.Id)
 
 				// If for some reason the game move got added to the work queue twice and has already
 				// been processed just return.
 				if work.GameMove.Status != repository.GAMEMOVE_STATUS_AWAITING {
-					return
+					continue
 				}
 
 				gameBot, err := work.GameMove.GameBot()
@@ -74,7 +75,7 @@ func (gmw GameMoveWorker) Start() {
 
 				// If the Bot is marked as ERROR or OFFLINE then don't process this move.
 				if bot.Status != repository.BOT_STATUS_ONLINE {
-					return
+					continue
 				}
 
 				// Ping the bot to ensure its still online.
@@ -85,7 +86,7 @@ func (gmw GameMoveWorker) Start() {
 				}
 				if success == false {
 					bot.MarkOffline()
-					return
+					continue
 				}
 
 				// If the bots status has changed and its now online then re-queue any awaiting moves
@@ -116,11 +117,14 @@ func (gmw GameMoveWorker) Start() {
 				if err != nil {
 					log.Fatal(err)
 				}
+
 				reply := gameManager.GetNextMoveRPCResult(work.GameMove)
 
 				var rsr rpchelper.RPCServerResponse
 				rsr.Result = reply
+				log.Printf("[wkr%d] Calling %s for %s (move id: %d)\n", gmw.Id, method, bot.Name, work.GameMove.Id)
 				err = rpchelper.Call(bot.RPCEndpoint, method, params, &rsr)
+				log.Printf("[wkr%d] Call %s complete for %s (move id: %d)\n", gmw.Id, method, bot.Name, work.GameMove.Id)
 				if err != nil {
 					fmt.Println("Call failed")
 					log.Fatal(err)
@@ -179,6 +183,8 @@ func (gmw GameMoveWorker) Start() {
 				if err != nil {
 					log.Fatal(err)
 				}
+
+				continue
 
 			case <-gmw.QuitChan:
 				// We have been asked to stop.

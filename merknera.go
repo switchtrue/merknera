@@ -59,6 +59,7 @@ func verifyBotsAndQueueMoves() {
 		log.Fatal(err)
 	}
 	for _, gm := range awaitingMoves {
+		log.Printf("Re-queuing: %d\n", gm.Id)
 		gameworker.QueueGameMove(gm)
 	}
 }

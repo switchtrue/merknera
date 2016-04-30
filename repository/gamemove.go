@@ -10,6 +10,7 @@ type GameMove struct {
 	gameBotId int
 	gameBot   GameBot
 	Status    GameMoveStatus
+	Winner    bool
 }
 
 type GameMoveStatus string
@@ -59,6 +60,8 @@ func (gm *GameMove) MarkAsWin() error {
 		log.Printf("An error occurred in gamemove.MarkAsWin():\n%s\n", err)
 		return err
 	}
+
+	gm.Winner = true
 
 	return nil
 }
@@ -141,9 +144,10 @@ func GetGameMoveById(id int) (GameMove, error) {
 	  id
 	, game_bot_id
 	, status
+	, winner
 	FROM move
 	WHERE id = $1
-	`, id).Scan(&gameMove.Id, &gameMove.gameBotId, &status)
+	`, id).Scan(&gameMove.Id, &gameMove.gameBotId, &status, &gameMove.Winner)
 	if err != nil {
 		log.Printf("An error occurred in gamemove.GetGameMoveById():\n%s\n", err)
 		return GameMove{}, err

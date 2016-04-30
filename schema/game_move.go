@@ -50,6 +50,16 @@ var GameMoveType = graphql.NewObject(
 					return nil, nil
 				},
 			},
+			"winner": &graphql.Field{
+				Type:        graphql.Boolean,
+				Description: "True if this move was the winning game move.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					if gm, ok := p.Source.(repository.GameMove); ok {
+						return gm.Winner, nil
+					}
+					return nil, nil
+				},
+			},
 		},
 	},
 )

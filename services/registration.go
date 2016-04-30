@@ -102,10 +102,15 @@ func (h *RegistrationService) Register(r *http.Request, args *RegistrationArgs, 
 			responseMessage := fmt.Sprintf("A new version of your bot has been registered as %s (version: %s), good luck with %s!", bot.Name, bot.Version, gt.Name)
 			reply.Message = responseMessage
 		} else {
-			responseMessage := fmt.Sprintf(`Hello, %s. The version \"%s\" of your bot is already registered. No new games will
+			responseMessage := fmt.Sprintf(`Hello, %s. The version \"%s\" of your bot is already registered. RPC Endpoint, Programming Language, Website and Description have been updated. No new games will
 		be scheduled but your bot will marked as online and if there are any outstanding games they will be
 		continued.`, bot.Name, bot.Version)
 			reply.Message = responseMessage
+
+			err = bot.Update(args.RPCEndpoint, args.ProgrammingLanguage, args.Website, args.Description)
+			if err != nil {
+				log.Fatal(err)
+			}
 
 			// Mark the bot as online again.
 			err = bot.MarkOnline()

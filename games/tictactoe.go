@@ -182,6 +182,13 @@ func (tgm TicTacToeGameManager) ProcessMove(gameMove repository.GameMove, result
 		return nil, false, err
 	}
 
+	// Check that the position played is within the range of the game board.
+	if len(tttGameState) < position || position < 0 {
+		msg := fmt.Sprintf("Invalid position: \"%d\" is not a valid position in a 3x3 Tic-Tac-Toe board. Valid positions are 0-8 inclusive.")
+		return nil, false, errors.New(msg)
+	}
+
+	// Check that the position played has not already been played.
 	if tttGameState[position] != "" {
 		msg := fmt.Sprintf("Invalid position: The position you played, \"%d\", is already taken by \"%s\"", position, tttGameState[position])
 		return nil, false, errors.New(msg)

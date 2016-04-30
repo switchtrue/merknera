@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 
+	"os"
+
 	"github.com/graphql-go/handler"
 	"github.com/mleonard87/merknera/gameworker"
 	"github.com/mleonard87/merknera/graphql"
@@ -67,7 +69,10 @@ func verifyBotsAndQueueMoves() {
 func main() {
 	registerRPCHandler()
 	registerGraphQLHandler()
-	registerStaticFileServerHandler()
+	graphiql := os.Getenv("MERKNERA_GRAPHIQL")
+	if graphiql == "TRUE" {
+		registerStaticFileServerHandler()
+	}
 	registerAboutHandler()
 
 	gameworker.StartGameMoveDispatcher(4)

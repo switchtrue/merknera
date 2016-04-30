@@ -8,6 +8,14 @@ import (
 	"github.com/mleonard87/merknera/repository"
 )
 
+type GameResult string
+
+const (
+	GAME_RESULT_WIN       GameResult = "WIN"
+	GAME_RESULT_DRAW      GameResult = "DRAW"
+	GAME_RESULT_UNDECIDED GameResult = "UNDECIDED"
+)
+
 type GameManager interface {
 	GenerateGames(bot repository.Bot) []repository.Game
 	Mnemonic() string
@@ -17,12 +25,12 @@ type GameManager interface {
 	GetNextMoveRPCResult(gameMove repository.GameMove) interface{}
 
 	GetCompleteRPCMethodName() string
-	GetCompleteRPCParams(gb repository.GameBot) (interface{}, error)
+	GetCompleteRPCParams(gb repository.GameBot, gr GameResult) (interface{}, error)
 
 	GetErrorRPCMethodName() string
 	GetErrorRPCParams(gm repository.GameMove, errorMessage string) interface{}
 
-	ProcessMove(gameMove repository.GameMove, result map[string]interface{}) (interface{}, bool, error)
+	ProcessMove(gameMove repository.GameMove, result map[string]interface{}) (interface{}, GameResult, error)
 	GetGameBotForNextMove(currentMove repository.GameMove) (repository.GameBot, error)
 }
 

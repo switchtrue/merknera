@@ -153,45 +153,45 @@ func (tgm TicTacToeGameManager) GetNextMoveRPCResult(gameMove repository.GameMov
 	return nextMoveResponse{}
 }
 
-func (tgm TicTacToeGameManager) ProcessMove(gameMove repository.GameMove, result map[string]interface{}) (interface{}, bool, error) {
+func (tgm TicTacToeGameManager) ProcessMove(gameMove repository.GameMove, result map[string]interface{}) (interface{}, GameResult, error) {
 	var position int
 	if pos, ok := result["position"].(float64); ok {
 		position = int(pos)
 	} else {
-		return nil, false, errors.New("Could not find property \"position\" in your response or position was not an integer.")
+		return nil, GAME_RESULT_UNDECIDED, errors.New("Could not find property \"position\" in your response or position was not an integer.")
 	}
 
 	gb, err := gameMove.GameBot()
 	if err != nil {
-		return nil, false, err
+		return nil, GAME_RESULT_UNDECIDED, err
 	}
 
 	game, err := gb.Game()
 	if err != nil {
-		return nil, false, err
+		return nil, GAME_RESULT_UNDECIDED, err
 	}
 
 	gs, err := game.GameState()
 	if err != nil {
-		return nil, false, err
+		return nil, GAME_RESULT_UNDECIDED, err
 	}
 
 	var tttGameState TicTacToeGameState
 	err = json.Unmarshal([]byte(gs), &tttGameState)
 	if err != nil {
-		return nil, false, err
+		return nil, GAME_RESULT_UNDECIDED, err
 	}
 
 	// Check that the position played is within the range of the game board.
 	if len(tttGameState) < position || position < 0 {
 		msg := fmt.Sprintf("Invalid position: \"%d\" is not a valid position in a 3x3 Tic-Tac-Toe board. Valid positions are 0-8 inclusive.")
-		return nil, false, errors.New(msg)
+		return nil, GAME_RESULT_UNDECIDED, errors.New(msg)
 	}
 
 	// Check that the position played has not already been played.
 	if tttGameState[position] != "" {
 		msg := fmt.Sprintf("Invalid position: The position you played, \"%d\", is already taken by \"%s\"", position, tttGameState[position])
-		return nil, false, errors.New(msg)
+		return nil, GAME_RESULT_UNDECIDED, errors.New(msg)
 	}
 
 	mark := getMarkForPlaySequence(gb.PlaySequence)
@@ -199,7 +199,23 @@ func (tgm TicTacToeGameManager) ProcessMove(gameMove repository.GameMove, result
 
 	win := isWinForMark(tttGameState, mark)
 
-	return tttGameState, win, nil
+	// Detect if a draw has occurred.
+	if !win {
+		spacesLeft := false
+		for _, v := range tttGameState {
+			if v == "" {
+				spacesLeft = true
+			}
+		}
+
+		if !spacesLeft {
+			return tttGameState, GAME_RESULT_DRAW, nil
+		}
+	} else {
+		return tttGameState, GAME_RESULT_WIN, nil
+	}
+
+	return tttGameState, GAME_RESULT_UNDECIDED, nil
 }
 
 func (tgm TicTacToeGameManager) GetGameBotForNextMove(currentMove repository.GameMove) (repository.GameBot, error) {
@@ -234,7 +250,7 @@ type completeParams struct {
 	GameState TicTacToeGameState `json:"gamestate"`
 }
 
-func (tgm TicTacToeGameManager) GetCompleteRPCParams(gb repository.GameBot) (interface{}, error) {
+func (tgm TicTacToeGameManager) GetCompleteRPCParams(gb repository.GameBot, gr GameResult) (interface{}, error) {
 	game, err := gb.Game()
 	if err != nil {
 		return nil, err
@@ -245,19 +261,21 @@ func (tgm TicTacToeGameManager) GetCompleteRPCParams(gb repository.GameBot) (int
 		return nil, err
 	}
 
-	wm, err := game.WinningMove()
-	if err != nil {
-		return nil, err
-	}
+	win := false
+	if gr == GAME_RESULT_WIN {
+		wm, err := game.WinningMove()
+		if err != nil {
+			return nil, err
+		}
 
-	winninggb, err := wm.GameBot()
-	if err != nil {
-		return nil, err
-	}
+		winninggb, err := wm.GameBot()
+		if err != nil {
+			return nil, err
+		}
 
-	w := false
-	if gb.Id == winninggb.Id {
-		w = true
+		if gb.Id == winninggb.Id {
+			win = true
+		}
 	}
 
 	var tgs TicTacToeGameState
@@ -267,7 +285,7 @@ func (tgm TicTacToeGameManager) GetCompleteRPCParams(gb repository.GameBot) (int
 	}
 	cp := completeParams{
 		GameId:    game.Id,
-		Winner:    w,
+		Winner:    win,
 		Mark:      getMarkForPlaySequence(gb.PlaySequence),
 		GameState: tgs,
 	}

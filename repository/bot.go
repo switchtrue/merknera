@@ -200,29 +200,11 @@ func (b *Bot) GamesWonCount() (int, error) {
 	db := GetDB()
 	err := db.QueryRow(`
 	SELECT COUNT(*)
-	FROM (
-	  SELECT
-	    gb.*
-	  , (
-	    SELECT
-	      CASE
-                WHEN gb2.bot_id = gb.bot_id THEN 1
-		ELSE 0
-	      END
-	    FROM game_bot gb2
-	    JOIN move m
-	      ON gb2.id = m.game_bot_id
-	    WHERE gb2.game_id = gb.game_id
-	    ORDER BY m.created_datetime DESC
-	    LIMIT 1
-	  ) winner
-	  FROM game_bot gb
-          JOIN game g
-            ON gb.game_id = g.id
-           AND g.status = 'COMPLETE'
-	  WHERE gb.bot_id = $1
-	) t
-	WHERE t.winner = 1
+	FROM game_bot gb
+	JOIN move m
+	  ON gb.id = m.game_bot_id
+	 AND m.winner = true
+	WHERE gb.bot_id = $1
 	`, b.Id).Scan(&count)
 	if err != nil {
 		if err == sql.ErrNoRows {

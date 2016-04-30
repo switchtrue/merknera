@@ -69,6 +69,9 @@ var GameType = graphql.NewObject(
 						if err != nil {
 							return nil, nil
 						}
+						if wm.Id == 0 {
+							return nil, nil
+						}
 						return wm, nil
 					}
 					return nil, nil

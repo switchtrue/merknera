@@ -82,9 +82,11 @@ CREATE TABLE move (
 , game_bot_id      INTEGER REFERENCES game_bot (id) NOT NULL
 , status           VARCHAR(20) DEFAULT 'AWAITING' NOT NULL CHECK (status IN ('AWAITING', 'COMPLETE', 'SUPERSEDED'))
 , game_state       JSONB NOT NULL
+, winner           BOOLEAN DEFAULT FALSE NOT NULL
 , created_datetime TIMESTAMP WITH TIME ZONE DEFAULT (now()) NOT NULL
 );
 
 CREATE INDEX ON move (game_bot_id);
 
 CREATE INDEX ON move (status);
+

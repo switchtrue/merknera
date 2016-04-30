@@ -48,6 +48,21 @@ func (gm *GameMove) MarkComplete() error {
 	return nil
 }
 
+func (gm *GameMove) MarkAsWin() error {
+	db := GetDB()
+	_, err := db.Exec(`
+	UPDATE move
+	SET winner = true
+	WHERE id = $1
+	`, gm.Id)
+	if err != nil {
+		log.Printf("An error occurred in gamemove.MarkAsWin():\n%s\n", err)
+		return err
+	}
+
+	return nil
+}
+
 func (gm *GameMove) SetGameState(gs interface{}) error {
 	gsB, err := json.Marshal(gs)
 	if err != nil {

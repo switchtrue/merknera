@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"database/sql"
 	"errors"
 	"log"
 )
@@ -72,6 +73,9 @@ func (g *Game) NextGameMove() (GameMove, error) {
 }
 
 func (g *Game) GetWinningMoveId() (int, error) {
+	if g.Status != GAME_STATUS_COMPLETE {
+		return 0, errors.New("This game is not yet complete. You should not call GetWinningMoveId() on an incomplete game.")
+	}
 	db := GetDB()
 	var nextMoveId int
 	err := db.QueryRow(`
@@ -82,13 +86,15 @@ func (g *Game) GetWinningMoveId() (int, error) {
 	  ON g.id = gb.game_id
 	JOIN move m
 	  ON gb.id = m.game_bot_id
+	 AND m.winner = TRUE
 	WHERE g.id = $1
-	ORDER BY m.created_datetime DESC
-	LIMIT 1
 	`, g.Id).Scan(&nextMoveId)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, nil
+		}
 		log.Printf("An error occurred in game.GetWinningMoveId():\n%s\n", err)
-		return -1, err
+		return 0, err
 	}
 
 	return nextMoveId, nil
@@ -96,12 +102,16 @@ func (g *Game) GetWinningMoveId() (int, error) {
 
 func (g *Game) WinningMove() (GameMove, error) {
 	if g.Status != GAME_STATUS_COMPLETE {
-		return GameMove{}, errors.New("This game is not yet complete. You should not call WinningMove() on an uncomplete game.")
+		return GameMove{}, errors.New("This game is not yet complete. You should not call WinningMove() on an incomplete game.")
 	}
 	moveId, err := g.GetWinningMoveId()
 	if err != nil {
 		log.Printf("An error occurred in game.GetWinningMoveId():1:\n%s\n", err)
 		return GameMove{}, err
+	}
+
+	if moveId == 0 {
+		return GameMove{}, nil
 	}
 
 	gameMove, err := GetGameMoveById(moveId)

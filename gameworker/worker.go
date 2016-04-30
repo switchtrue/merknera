@@ -147,7 +147,7 @@ func (gmw GameMoveWorker) Start() {
 				}
 
 				if res, ok := rsr.Result.(map[string]interface{}); ok {
-					gs, winner, err := gameManager.ProcessMove(work.GameMove, res)
+					gs, gameResult, err := gameManager.ProcessMove(work.GameMove, res)
 					if err != nil {
 						log.Print(err) //fatal
 						err = bot.MarkError()
@@ -157,7 +157,7 @@ func (gmw GameMoveWorker) Start() {
 						continue
 					}
 
-					if !winner {
+					if gameResult == games.GAME_RESULT_UNDECIDED {
 						nextBot, err := gameManager.GetGameBotForNextMove(work.GameMove)
 						if err != nil {
 							log.Printf("[wkr%d] Error obtaining game bot for next move (game move id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id)
@@ -170,6 +170,13 @@ func (gmw GameMoveWorker) Start() {
 						}
 						QueueGameMove(nextMove)
 					} else {
+						if gameResult == games.GAME_RESULT_WIN {
+							err = work.GameMove.MarkAsWin()
+							if err != nil {
+								log.Printf("[wkr%d] Error marking game move as win (game move id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id)
+							}
+						}
+
 						err = game.MarkComplete()
 						if err != nil {
 							log.Printf("[wkr%d] Error marking game as complete (game id: %d):\n%v\n", gmw.Id, err, game.Id)
@@ -183,7 +190,7 @@ func (gmw GameMoveWorker) Start() {
 						// Send each player a Complete notification.
 						cm := gameManager.GetCompleteRPCMethodName()
 						for _, p := range players {
-							cp, err := gameManager.GetCompleteRPCParams(p)
+							cp, err := gameManager.GetCompleteRPCParams(p, gameResult)
 							if err != nil {
 								log.Printf("[wkr%d] Error obtaining complete RPC params for player (game bot id: %d):\n%v\n", gmw.Id, err, p.Id)
 								continue

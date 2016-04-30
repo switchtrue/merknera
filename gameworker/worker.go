@@ -55,22 +55,26 @@ func (gmw GameMoveWorker) Start() {
 
 				gameBot, err := work.GameMove.GameBot()
 				if err != nil {
-					log.Fatal(err)
+					log.Printf("[wkr%d] Error retrieving GameBot:\n%v\n", gmw.Id, err)
+					continue
 				}
 
 				bot, err := gameBot.Bot()
 				if err != nil {
-					log.Fatal(err)
+					log.Printf("[wkr%d] Error retrieving GameBot Bot:\n%v\n", gmw.Id, err)
+					continue
 				}
 
 				game, err := gameBot.Game()
 				if err != nil {
-					log.Fatal(err)
+					log.Printf("[wkr%d] Error retrieving GameBot Game:\n%v\n", gmw.Id, err)
+					continue
 				}
 
 				gameType, err := game.GameType()
 				if err != nil {
-					log.Fatal(err)
+					log.Printf("[wkr%d] Error retrieving GameType:\n%v\n", gmw.Id, err)
+					continue
 				}
 
 				// If the Bot is marked as ERROR or OFFLINE then don't process this move.
@@ -82,10 +86,14 @@ func (gmw GameMoveWorker) Start() {
 				beforeStatus := bot.Status
 				success, err := bot.Ping()
 				if err != nil {
-					log.Fatal(err)
+					log.Printf("[wkr%d] Error Pinging Bot (bot id: %d):\n%v\n", gmw.Id, err, bot.Id)
+					continue
 				}
 				if success == false {
-					bot.MarkOffline()
+					err = bot.MarkOffline()
+					if err != nil {
+						log.Printf("[wkr%d] Error marking bot offline (bot id: %d):\n%v\n", gmw.Id, err, bot.Id)
+					}
 					continue
 				}
 
@@ -94,7 +102,8 @@ func (gmw GameMoveWorker) Start() {
 				if beforeStatus != bot.Status && bot.Status == repository.BOT_STATUS_ONLINE {
 					awaitingMoves, err := repository.GetAwaitingMovesForBot(bot)
 					if err != nil {
-						log.Fatal(err)
+						log.Printf("[wkr%d] Error getting awaiting moves for bot (bot id: %d):\n%v\n", gmw.Id, err, bot.Id)
+						continue
 					}
 					for _, gm := range awaitingMoves {
 						QueueGameMove(gm)
@@ -103,19 +112,22 @@ func (gmw GameMoveWorker) Start() {
 
 				gameManager, err := games.GetGameManager(gameType)
 				if err != nil {
-					log.Fatal(err)
+					log.Printf("[wkr%d] Error obtaining GameManager for game (gameType: %s):\n%v\n", gmw.Id, err, gameType)
+					continue
 				}
 
 				err = game.MarkInProgress()
 				if err != nil {
-					log.Fatal(err)
+					log.Printf("[wkr%d] Error marking game in progress (game id: %d):\n%v\n", gmw.Id, err, game.Id)
+					continue
 				}
 
 				method := gameManager.GetNextMoveRPCMethodName()
 
 				params, err := gameManager.GetNextMoveRPCParams(work.GameMove)
 				if err != nil {
-					log.Fatal(err)
+					log.Printf("[wkr%d] Error obtaining next move RPC params (game move id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id)
+					continue
 				}
 
 				reply := gameManager.GetNextMoveRPCResult(work.GameMove)
@@ -126,62 +138,82 @@ func (gmw GameMoveWorker) Start() {
 				err = rpchelper.Call(bot.RPCEndpoint, method, params, &rsr)
 				log.Printf("[wkr%d] Call %s complete for %s (move id: %d)\n", gmw.Id, method, bot.Name, work.GameMove.Id)
 				if err != nil {
-					fmt.Println("Call failed")
-					log.Fatal(err)
+					log.Println(err) //fatal
+					err = bot.MarkError()
+					if err != nil {
+						log.Printf("[wkr%d] Error marking a bot as error status (bot id: %d):\n%v\n", gmw.Id, err, bot.Id)
+					}
+					continue
 				}
 
 				if res, ok := rsr.Result.(map[string]interface{}); ok {
 					gs, winner, err := gameManager.ProcessMove(work.GameMove, res)
 					if err != nil {
-						log.Fatal(err)
+						log.Print(err) //fatal
+						err = bot.MarkError()
+						if err != nil {
+							log.Printf("[wkr%d] Error marking a bot as error status after process move (bot id: %d):\n%v\n", gmw.Id, err, bot.Id)
+						}
+						continue
 					}
 
 					if !winner {
 						nextBot, err := gameManager.GetGameBotForNextMove(work.GameMove)
 						if err != nil {
-							log.Fatal(err)
+							log.Printf("[wkr%d] Error obtaining game bot for next move (game move id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id)
+							continue
 						}
 						nextMove, err := repository.CreateGameMove(nextBot, gs)
 						if err != nil {
-							log.Fatal(err)
+							log.Printf("[wkr%d] Error creating next game move (current game move id: %d, next game bot id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id, nextBot.Id)
+							continue
 						}
 						QueueGameMove(nextMove)
 					} else {
-						game.MarkComplete()
-						p, err := game.Players()
+						err = game.MarkComplete()
 						if err != nil {
-							log.Fatal(err)
+							log.Printf("[wkr%d] Error marking game as complete (game id: %d):\n%v\n", gmw.Id, err, game.Id)
+						}
+						players, err := game.Players()
+						if err != nil {
+							log.Printf("[wkr%d] Error obtaining a player list for the game (game id: %d):\n%v\n", gmw.Id, err, game.Id)
+							continue
 						}
 
 						// Send each player a Complete notification.
 						cm := gameManager.GetCompleteRPCMethodName()
-						for _, p := range p {
+						for _, p := range players {
 							cp, err := gameManager.GetCompleteRPCParams(p)
 							if err != nil {
-								log.Fatal(err)
+								log.Printf("[wkr%d] Error obtaining complete RPC params for player (game bot id: %d):\n%v\n", gmw.Id, err, p.Id)
+								continue
 							}
 
 							pb, err := p.Bot()
 							if err != nil {
-								log.Fatal(err)
+								log.Printf("[wkr%d] Error obtaining bot for player (game bot id: %d):\n%v\n", gmw.Id, err, p.Id)
+								continue
 							}
 
 							err = rpchelper.Notify(pb.RPCEndpoint, cm, cp)
 							if err != nil {
-								log.Fatal(err)
+								log.Printf("[wkr%d] Error notifying player for complete game (bot id: %d):\n%v\n", gmw.Id, err, pb.Id)
+								continue
 							}
 						}
 					}
 
 					err = work.GameMove.SetGameState(gs)
 					if err != nil {
-						log.Fatal(err)
+						log.Printf("[wkr%d] Error setting game state (game move id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id)
+						continue
 					}
 				}
 
 				err = work.GameMove.MarkComplete()
 				if err != nil {
-					log.Fatal(err)
+					log.Printf("[wkr%d] Error marking game move as complete (game move id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id)
+					continue
 				}
 
 				continue

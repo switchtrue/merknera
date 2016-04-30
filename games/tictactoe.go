@@ -183,7 +183,7 @@ func (tgm TicTacToeGameManager) ProcessMove(gameMove repository.GameMove, result
 	}
 
 	if tttGameState[position] != "" {
-		msg := fmt.Sprintf("Invalid position: The position you played is already taken by \"%s\"", tttGameState[position])
+		msg := fmt.Sprintf("Invalid position: The position you played, \"%d\", is already taken by \"%s\"", position, tttGameState[position])
 		return nil, false, errors.New(msg)
 	}
 

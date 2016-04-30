@@ -15,8 +15,9 @@ type GameMove struct {
 type GameMoveStatus string
 
 const (
-	GAMEMOVE_STATUS_AWAITING GameMoveStatus = "AWAITING"
-	GAMEMOVE_STATUS_COMPLETE GameMoveStatus = "COMPLETE"
+	GAMEMOVE_STATUS_AWAITING   GameMoveStatus = "AWAITING"
+	GAMEMOVE_STATUS_COMPLETE   GameMoveStatus = "COMPLETE"
+	GAMEMOVE_STATUS_SUPERSEDED GameMoveStatus = "SUPERSEDED"
 )
 
 func (gm *GameMove) GameBot() (GameBot, error) {

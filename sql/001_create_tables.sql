@@ -44,7 +44,7 @@ CREATE TABLE bot (
 , programming_language VARCHAR(250)
 , website              VARCHAR(500) NULL
 , description          VARCHAR(1000) NULL
-, status               VARCHAR(20) NOT NULL CHECK (status IN ('ONLINE', 'OFFLINE', 'ERROR', 'SUPERSEDED))
+, status               VARCHAR(20) NOT NULL CHECK (status IN ('ONLINE', 'OFFLINE', 'ERROR', 'SUPERSEDED'))
 , created_datetime     TIMESTAMP WITH TIME ZONE DEFAULT (now()) NOT NULL
 , UNIQUE(name, version)
 );
@@ -58,7 +58,7 @@ CREATE INDEX ON bot (programming_language);
 CREATE TABLE game (
   id               SERIAL PRIMARY KEY NOT NULL
 , game_type_id     INTEGER REFERENCES game_type (id) NOT NULL
-, status           VARCHAR(50) DEFAULT 'NOT STARTED' NOT NULL CHECK (status IN ('NOT STARTED', 'IN PROGRESS', 'COMPLETE'))
+, status           VARCHAR(50) DEFAULT 'NOT STARTED' NOT NULL CHECK (status IN ('NOT STARTED', 'IN PROGRESS', 'COMPLETE', 'SUPERSEDED'))
 , created_datetime TIMESTAMP WITH TIME ZONE DEFAULT (now()) NOT NULL
 );
 
@@ -80,7 +80,7 @@ CREATE INDEX ON game_bot (bot_id);
 CREATE TABLE move ( 
   id               SERIAL PRIMARY KEY NOT NULL
 , game_bot_id      INTEGER REFERENCES game_bot (id) NOT NULL
-, status           VARCHAR(20) DEFAULT 'AWAITING' NOT NULL CHECK (status IN ('AWAITING', 'COMPLETE'))
+, status           VARCHAR(20) DEFAULT 'AWAITING' NOT NULL CHECK (status IN ('AWAITING', 'COMPLETE', 'SUPERSEDED'))
 , game_state       JSONB NOT NULL
 , created_datetime TIMESTAMP WITH TIME ZONE DEFAULT (now()) NOT NULL
 );
@@ -88,6 +88,3 @@ CREATE TABLE move (
 CREATE INDEX ON move (game_bot_id);
 
 CREATE INDEX ON move (status);
-
-
-

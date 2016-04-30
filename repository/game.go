@@ -18,6 +18,7 @@ const (
 	GAME_STATUS_NOT_STARTED GameStatus = "NOT STARTED"
 	GAME_STATUS_IN_PROGRESS GameStatus = "IN PROGRESS"
 	GAME_STATUS_COMPLETE    GameStatus = "COMPLETE"
+	GAME_STATUS_SUPERSEDED  GameStatus = "SUPERSEDED"
 )
 
 func (g *Game) GameType() (GameType, error) {
@@ -269,7 +270,8 @@ func ListGames() ([]Game, error) {
 	, g.game_type_id
 	, g.status
 	FROM game g
-	`)
+	WHERE g.status != $1
+	`, string(GAME_STATUS_SUPERSEDED))
 	if err != nil {
 		log.Printf("An error occurred in game.ListGames():1:\n%s\n", err)
 		return []Game{}, err

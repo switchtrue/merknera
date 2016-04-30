@@ -5,15 +5,18 @@ import (
 
 	"database/sql"
 
+	"strings"
+
 	"github.com/mleonard87/merknera/rpchelper"
 )
 
 type BotStatus string
 
 const (
-	BOT_STATUS_ONLINE  BotStatus = "ONLINE"
-	BOT_STATUS_OFFLINE BotStatus = "OFFLINE"
-	BOT_STATUS_ERROR   BotStatus = "ERROR"
+	BOT_STATUS_ONLINE     BotStatus = "ONLINE"
+	BOT_STATUS_OFFLINE    BotStatus = "OFFLINE"
+	BOT_STATUS_ERROR      BotStatus = "ERROR"
+	BOT_STATUS_SUPERSEDED BotStatus = "SUPERSEDED"
 )
 
 type Bot struct {
@@ -146,9 +149,9 @@ func (b *Bot) GamesPlayed() ([]Game, error) {
 	FROM game_bot gb
 	JOIN game g
 	  ON gb.game_id = g.id
-	 AND g.status = 'COMPLETE'
-	WHERE bot_id = $1
-	`, b.Id)
+	 AND g.status != $1
+	WHERE bot_id = $2
+	`, string(GAME_STATUS_SUPERSEDED), b.Id)
 	if err != nil {
 		log.Printf("An error occurred in bot.GamesPlayedCount():\n%s\n", err)
 		return []Game{}, err
@@ -232,10 +235,88 @@ func (b *Bot) GamesWonCount() (int, error) {
 	return count, nil
 }
 
+func (b *Bot) Update(rpcEndpoint string, programmingLanguage string, website string, description string) error {
+	db := GetDB()
+	_, err := db.Exec(`
+	UPDATE bot
+	SET
+	  rpc_endpoint = $1
+	, programming_language = $2
+	, website = $3
+	, description = $4
+	WHERE id = $5
+	`, rpcEndpoint, programmingLanguage, website, strings.Trim(description, " "), b.Id)
+	if err != nil {
+		log.Printf("An error occurred in bot.Update():1:\n%s\n", err)
+		return err
+	}
+
+	b.RPCEndpoint = rpcEndpoint
+	b.ProgrammingLanguage = programmingLanguage
+	b.Website = website
+	b.Description = description
+
+	return nil
+}
+
 func RegisterBot(name string, version string, gameType GameType, user User, rpcEndpoint string, programmingLanguage string, website string, description string) (Bot, error) {
 	var botId int
 	db := GetDB()
-	err := db.QueryRow(`
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("An error occurred in bot.RegisterBot():1:\n%s\n", err)
+		return Bot{}, err
+	}
+
+	_, err = tx.Exec(`
+	UPDATE bot
+	SET status = $1
+	WHERE name = $2
+	`, string(BOT_STATUS_SUPERSEDED), name)
+	if err != nil {
+		log.Printf("An error occurred in bot.RegisterBot():2:\n%s\n", err)
+		tx.Rollback()
+		return Bot{}, err
+	}
+
+	_, err = tx.Exec(`
+	UPDATE game
+	SET status = $1
+	WHERE id IN (
+	  SELECT gb.game_id
+	  FROM bot b
+	  JOIN game_bot gb
+	    ON b.id = gb.bot_id
+	  WHERE b.name = $2
+	)
+	AND status != $3
+	`, string(GAME_STATUS_SUPERSEDED), strings.Trim(name, " "), string(GAME_STATUS_COMPLETE))
+	if err != nil {
+		log.Printf("An error occurred in bot.RegisterBot():3:\n%s\n", err)
+		tx.Rollback()
+		return Bot{}, err
+	}
+
+	_, err = tx.Exec(`
+	UPDATE move
+	SET status = $1
+	WHERE game_bot_id IN (
+	  SELECT gb.id
+	  FROM bot b
+	  JOIN game_bot gb
+	    ON b.id = gb.bot_id
+	  WHERE b.name = $2
+	)
+	AND status != $3
+	`, string(GAMEMOVE_STATUS_SUPERSEDED), strings.Trim(name, " "), string(GAMEMOVE_STATUS_COMPLETE))
+	if err != nil {
+		log.Printf("An error occurred in bot.RegisterBot():4:\n%s\n", err)
+		tx.Rollback()
+		return Bot{}, err
+	}
+
+	err = tx.QueryRow(`
 	INSERT INTO bot (
 	  name
 	, version
@@ -257,17 +338,21 @@ func RegisterBot(name string, version string, gameType GameType, user User, rpcE
 	, $8
 	, $9
 	) RETURNING id
-	`, name, version, gameType.Id, user.Id, rpcEndpoint, programmingLanguage, website, description, string(BOT_STATUS_ONLINE)).Scan(&botId)
+	`, strings.Trim(name, " "), strings.Trim(version, " "), gameType.Id, user.Id, rpcEndpoint, programmingLanguage, website, strings.Trim(description, " "), string(BOT_STATUS_ONLINE)).Scan(&botId)
 	if err != nil {
-		log.Printf("An error occurred in bot.RegisterBot():1:\n%s\n", err)
+		log.Printf("An error occurred in bot.RegisterBot():5:\n%s\n", err)
+		tx.Rollback()
 		return Bot{}, err
 	}
 
+	tx.Commit()
+
 	bot, err := GetBotById(botId)
 	if err != nil {
-		log.Printf("An error occurred in bot.RegisterBot():2:\n%s\n", err)
+		log.Printf("An error occurred in bot.RegisterBot():6:\n%s\n", err)
 		return Bot{}, err
 	}
+
 	return bot, nil
 }
 
@@ -345,8 +430,9 @@ func ListBotsForGameType(gameType GameType) ([]Bot, error) {
 	, b.status
 	FROM bot b
 	WHERE b.game_type_id = $1
+	AND b.status != $2
 	ORDER BY b.name, b.version
-	`, gameType.Id)
+	`, gameType.Id, string(BOT_STATUS_SUPERSEDED))
 	if err != nil {
 		return []Bot{}, err
 	}
@@ -382,8 +468,9 @@ func ListBots() ([]Bot, error) {
 	, b.description
 	, b.status
 	FROM bot b
+	WHERE status != $1
 	ORDER BY b.name, b.version
-	`)
+	`, string(BOT_STATUS_SUPERSEDED))
 	if err != nil {
 		log.Printf("An error occurred in bot.ListBots():1:\n%s\n", err)
 		return []Bot{}, err

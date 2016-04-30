@@ -117,6 +117,8 @@ func (h *RegistrationService) Register(r *http.Request, args *RegistrationArgs, 
 			if err != nil {
 				log.Fatal(err)
 			}
+
+			return nil
 		}
 	} else {
 		bot, err = repository.RegisterBot(args.BotName, args.BotVersion, gameType, user, args.RPCEndpoint, args.ProgrammingLanguage, args.Website, args.Description)

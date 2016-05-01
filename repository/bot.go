@@ -94,7 +94,8 @@ func (b *Bot) setStatus(status BotStatus) error {
 	UPDATE bot
 	SET status = $1
 	WHERE id = $2
-	`, string(status), b.Id)
+	AND status != $3
+	`, string(status), b.Id, string(BOT_STATUS_SUPERSEDED))
 	if err != nil {
 		log.Printf("An error occurred in bot.setStatus():\n%s\n", err)
 		return err
@@ -181,9 +182,9 @@ func (b *Bot) GamesPlayedCount() (int, error) {
 	FROM game_bot gb
 	JOIN game g
 	  ON gb.game_id = g.id
-	 AND g.status = 'COMPLETE'
-	WHERE bot_id = $1
-	`, b.Id).Scan(&count)
+	 AND g.status = $1
+	WHERE bot_id = $2
+	`, string(GAME_STATUS_COMPLETE), b.Id).Scan(&count)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return 0, nil
@@ -227,7 +228,8 @@ func (b *Bot) Update(rpcEndpoint string, programmingLanguage string, website str
 	, website = $3
 	, description = $4
 	WHERE id = $5
-	`, rpcEndpoint, programmingLanguage, website, strings.Trim(description, " "), b.Id)
+	AND status != $6
+	`, rpcEndpoint, programmingLanguage, website, strings.Trim(description, " "), b.Id, string(BOT_STATUS_SUPERSEDED))
 	if err != nil {
 		log.Printf("An error occurred in bot.Update():1:\n%s\n", err)
 		return err
@@ -252,9 +254,9 @@ func (b *Bot) ListAwaitingMoves() ([]GameMove, error) {
 	FROM game_bot gb
 	JOIN move m
 	ON gb.id = m.game_bot_id
-	AND m.status = 'AWAITING'
-	WHERE gb.bot_id = $1
-	`, b.Id)
+	AND m.status = $1
+	WHERE gb.bot_id = $2
+	`, string(GAMEMOVE_STATUS_AWAITING), b.Id)
 	if err != nil {
 		return []GameMove{}, err
 	}
@@ -418,7 +420,8 @@ func GetBotByName(name string) (Bot, error) {
 	, status
 	FROM bot
 	WHERE name = $1
-	`, name).Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &bot.Description, &status)
+	AND status != $2
+	`, name, string(BOT_STATUS_SUPERSEDED)).Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &bot.Description, &status)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			log.Printf("An error occurred in bot.GetBotByName():\n%s\n", err)

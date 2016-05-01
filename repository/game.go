@@ -176,7 +176,8 @@ func (g *Game) setStatus(status GameStatus) error {
 	UPDATE game
 	SET status = $1
 	WHERE id = $2
-	`, string(status), g.Id)
+	AND status != $3
+	`, string(status), g.Id, string(GAME_STATUS_SUPERSEDED))
 	if err != nil {
 		log.Printf("An error occurred in game.setStatus():\n%s\n", err)
 		return err

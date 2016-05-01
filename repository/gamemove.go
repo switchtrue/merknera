@@ -40,7 +40,8 @@ func (gm *GameMove) MarkComplete() error {
 	UPDATE move
 	SET status = $1
 	WHERE id = $2
-	`, string(GAMEMOVE_STATUS_COMPLETE), gm.Id)
+	AND status != $3
+	`, string(GAMEMOVE_STATUS_COMPLETE), gm.Id, string(GAME_STATUS_SUPERSEDED))
 	if err != nil {
 		log.Printf("An error occurred in gamemove.MarkComplete():\n%s\n", err)
 		return err

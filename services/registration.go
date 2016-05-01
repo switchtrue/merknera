@@ -118,6 +118,15 @@ func (h *RegistrationService) Register(r *http.Request, args *RegistrationArgs, 
 				log.Fatal(err)
 			}
 
+			awaitingMoves, err := bot.ListAwaitingMoves()
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			for _, am := range awaitingMoves {
+				gameworker.QueueGameMove(am)
+			}
+
 			return nil
 		}
 	} else {

@@ -100,7 +100,7 @@ func (gmw GameMoveWorker) Start() {
 				// If the bots status has changed and its now online then re-queue any awaiting moves
 				// for this bot.
 				if beforeStatus != bot.Status && bot.Status == repository.BOT_STATUS_ONLINE {
-					awaitingMoves, err := repository.GetAwaitingMovesForBot(bot)
+					awaitingMoves, err := bot.ListAwaitingMoves()
 					if err != nil {
 						log.Printf("[wkr%d] Error getting awaiting moves for bot (bot id: %d):\n%v\n", gmw.Id, err, bot.Id)
 						continue

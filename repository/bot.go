@@ -241,6 +241,40 @@ func (b *Bot) Update(rpcEndpoint string, programmingLanguage string, website str
 	return nil
 }
 
+func (b *Bot) ListAwaitingMoves() ([]GameMove, error) {
+	db := GetDB()
+	rows, err := db.Query(`
+	SELECT
+	  m.id
+	, m.game_bot_id
+	, m.status
+	, m.winner
+	FROM game_bot gb
+	JOIN move m
+	ON gb.id = m.game_bot_id
+	AND m.status = 'AWAITING'
+	WHERE gb.bot_id = $1
+	`, b.Id)
+	if err != nil {
+		return []GameMove{}, err
+	}
+
+	var gameMoveList []GameMove
+	for rows.Next() {
+		var gameMove GameMove
+		var status string
+		err := rows.Scan(&gameMove.Id, &gameMove.gameBotId, &status, &gameMove.Winner)
+		if err != nil {
+			log.Printf("An error occurred in bot.ListBotsForGameType():\n%s\n", err)
+			return gameMoveList, err
+		}
+		gameMove.Status = GameMoveStatus(status)
+		gameMoveList = append(gameMoveList, gameMove)
+	}
+
+	return gameMoveList, nil
+}
+
 func RegisterBot(name string, version string, gameType GameType, user User, rpcEndpoint string, programmingLanguage string, website string, description string) (Bot, error) {
 	var botId int
 	db := GetDB()

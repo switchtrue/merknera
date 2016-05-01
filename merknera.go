@@ -56,7 +56,7 @@ func verifyBotsAndQueueMoves() {
 	}
 
 	// Find all moves that are currently awaiting play and queue them.
-	awaitingMoves, err := repository.GetAwaitingMoves()
+	awaitingMoves, err := repository.ListAwaitingMoves()
 	if err != nil {
 		log.Fatal(err)
 	}

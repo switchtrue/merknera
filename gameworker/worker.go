@@ -47,6 +47,12 @@ func (gmw GameMoveWorker) Start() {
 			case work := <-gmw.GameMoveRequestWork:
 				log.Printf("[wkr%d] Working (move id: %d)\n", gmw.Id, work.GameMove.Id)
 
+				// Lock the current game move - its possible that the same move can end up in the work
+				// queue more than once if bots keep registering on the server is bounced. Lock the
+				// game move so it will only be processed one at a time.
+				GetGameMoveLock(work.GameMove)
+				defer ReleaseGameMoveLock(work.GameMove)
+
 				// If for some reason the game move got added to the work queue twice and has already
 				// been processed just return.
 				if work.GameMove.Status != repository.GAMEMOVE_STATUS_AWAITING {

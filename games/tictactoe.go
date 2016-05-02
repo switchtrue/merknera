@@ -305,7 +305,7 @@ func (tgm TicTacToeGameManager) GetErrorRPCParams(gm repository.GameMove, errorM
 	return errorParams{
 		GameId:    game.Id,
 		Message:   errorMessage,
-		ErrorCode: 999,
+		ErrorCode: 9999,
 	}
 }
 

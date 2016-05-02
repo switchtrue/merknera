@@ -144,7 +144,7 @@ func (gmw GameMoveWorker) Start() {
 				err = rpchelper.Call(bot.RPCEndpoint, method, params, &rsr)
 				log.Printf("[wkr%d] Call %s complete for %s (move id: %d)\n", gmw.Id, method, bot.Name, work.GameMove.Id)
 				if err != nil {
-					log.Println(err) //fatal
+					sendError(gameManager, work.GameMove, err)
 					err = bot.MarkError()
 					if err != nil {
 						log.Printf("[wkr%d] Error marking a bot as error status (bot id: %d):\n%v\n", gmw.Id, err, bot.Id)
@@ -155,7 +155,7 @@ func (gmw GameMoveWorker) Start() {
 				if res, ok := rsr.Result.(map[string]interface{}); ok {
 					gs, gameResult, err := gameManager.ProcessMove(work.GameMove, res)
 					if err != nil {
-						log.Print(err) //fatal
+						sendError(gameManager, work.GameMove, err)
 						err = bot.MarkError()
 						if err != nil {
 							log.Printf("[wkr%d] Error marking a bot as error status after process move (bot id: %d):\n%v\n", gmw.Id, err, bot.Id)
@@ -238,6 +238,28 @@ func (gmw GameMoveWorker) Start() {
 			}
 		}
 	}()
+}
+
+func sendError(gm games.GameManager, gameMove repository.GameMove, originalErr error) {
+	em := gm.GetErrorRPCMethodName()
+	ep := gm.GetErrorRPCParams(gameMove, originalErr.Error())
+
+	fmt.Printf("")
+
+	gb, err := gameMove.GameBot()
+	if err != nil {
+		log.Println("Error in sendError (game move id %d):1:\n%s\n", gameMove.Id, err)
+	}
+
+	bot, err := gb.Bot()
+	if err != nil {
+		log.Println("Error in sendError (game move id %d):2:\n%s\n", gameMove.Id, err)
+	}
+
+	err = rpchelper.Notify(bot.RPCEndpoint, em, ep)
+	if err != nil {
+		log.Println("Error in sendError (game move id %d):3:\n%s\n", gameMove.Id, err)
+	}
 }
 
 // Stop tells the worker to stop listening for work requests.

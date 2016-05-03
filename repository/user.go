@@ -11,17 +11,39 @@ import (
 
 type User struct {
 	Id       int
-	Username string
+	Name     string
+	Email    string
+	ImageUrl sql.NullString
 }
 
 // Token generator taken from https://stackoverflow.com/questions/22892120/how-to-generate-a-random-string-of-a-fixed-length-in-golang
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 const (
 	letterIdxBits = 6                    // 6 bits to represent a letter index
 	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
 	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 	tokenLength   = 50
 )
+
+func (u *User) Update(name string, imageUrl string) error {
+	db := GetDB()
+	_, err := db.Exec(`
+	UPDATE merknera_user
+	SET
+	  name = $1
+	, image_url = $2
+	WHERE id = $3
+	`, name, imageUrl, u.Id)
+	if err != nil {
+		log.Printf("An error occurred in user.Update():\n%s\n", err)
+		return err
+	}
+
+	u.Name = name
+	u.ImageUrl = sql.NullString{String: imageUrl, Valid: true}
+
+	return nil
+}
 
 var src = rand.NewSource(time.Now().UnixNano())
 
@@ -43,17 +65,21 @@ func GenerateToken(n int) string {
 	return string(b)
 }
 
-func CreateUser(username string) (User, error) {
+func CreateUser(name, email, imageUrl string) (User, error) {
 	var userId int
 	db := GetDB()
 	token := GenerateToken(tokenLength)
 	err := db.QueryRow(`
 	INSERT INTO merknera_user (
-	  username
+	  name
+	, email
+	, image_url
 	) VALUES (
 	  $1
+	, $2
+	, $3
 	) RETURNING id
-	`, username, token).Scan(&userId)
+	`, name, email, imageUrl).Scan(&userId)
 	if err != nil {
 		log.Printf("An error occurred in user.CreateUser():1:\n%s\n", err)
 		return User{}, err
@@ -87,12 +113,34 @@ func GetUserById(id int) (User, error) {
 	err := db.QueryRow(`
 	SELECT
 	  id
-	, username
+	, name
+	, email
+	, image_url
 	FROM merknera_user
 	WHERE id = $1
-	`, id).Scan(&user.Id, &user.Username)
+	`, id).Scan(&user.Id, &user.Name, &user.Email, &user.ImageUrl)
 	if err != nil {
 		log.Printf("An error occurred in user.GetUserById():\n%s\n", err)
+		return User{}, err
+	}
+
+	return user, nil
+}
+
+func GetUserByEmail(email string) (User, error) {
+	var user User
+	db := GetDB()
+	err := db.QueryRow(`
+	SELECT
+	  id
+	, name
+	, email
+	, image_url
+	FROM merknera_user
+	WHERE email = $1
+	`, email).Scan(&user.Id, &user.Name, &user.Email, &user.ImageUrl)
+	if err != nil {
+		log.Printf("An error occurred in user.GetUserByEmail():\n%s\n", err)
 		return User{}, err
 	}
 
@@ -105,12 +153,14 @@ func GetUserByToken(token string) (User, error) {
 	err := db.QueryRow(`
 	SELECT
 	  mu.id
-	, mu.username
+	, mu.name
+	, mu.email
+	, mu.image_url
 	FROM merknera_user_token mut
 	JOIN merknera_user mu
 	  ON mut.merknera_user_id = mu.id
 	WHERE token = $1
-	`, token).Scan(&user.Id, &user.Username)
+	`, token).Scan(&user.Id, &user.Name, &user.Email, &user.ImageUrl)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			em := fmt.Sprintf("User with Token \"%s\" is not currently registered with Merknera", token)
@@ -121,4 +171,34 @@ func GetUserByToken(token string) (User, error) {
 	}
 
 	return user, nil
+}
+
+func ListUsers() ([]User, error) {
+	db := GetDB()
+	rows, err := db.Query(`
+	SELECT
+	  u.id
+	, u.name
+	, u.email
+	, u.image_url
+	FROM merknera_user u
+	ORDER BY u.name
+	`)
+	if err != nil {
+		log.Printf("An error occurred in user.ListUsers():1:\n%s\n", err)
+		return []User{}, err
+	}
+
+	var userList []User
+	for rows.Next() {
+		var user User
+		err := rows.Scan(&user.Id, &user.Name, &user.Email, &user.ImageUrl)
+		if err != nil {
+			log.Printf("An error occurred in user.ListUsers():2:\n%s\n", err)
+			return userList, err
+		}
+		userList = append(userList, user)
+	}
+
+	return userList, nil
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/mleonard87/merknera/graphql"
 	"github.com/mleonard87/merknera/repository"
 	"github.com/mleonard87/merknera/schema"
+	"github.com/mleonard87/merknera/security"
 	"github.com/mleonard87/merknera/services"
 	"github.com/mleonard87/rpc"
 	"github.com/mleonard87/rpc/json"
@@ -46,6 +47,11 @@ func registerAboutHandler() {
 	})
 }
 
+func registerLoginHandler() {
+	lh := security.LoginHandler{}
+	http.Handle("/login", lh)
+}
+
 func verifyBotsAndQueueMoves() {
 	botList, err := repository.ListBots()
 	if err != nil {
@@ -74,6 +80,7 @@ func main() {
 		registerStaticFileServerHandler()
 	}
 	registerAboutHandler()
+	registerLoginHandler()
 
 	gameworker.StartGameMoveDispatcher(4)
 

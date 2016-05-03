@@ -20,12 +20,26 @@ var UserType = graphql.NewObject(
 					return nil, nil
 				},
 			},
-			"username": &graphql.Field{
+			"name": &graphql.Field{
 				Type:        graphql.String,
-				Description: "The username of this user.",
+				Description: "The name of this user.",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					if u, ok := p.Source.(repository.User); ok {
-						return u.Username, nil
+						return u.Name, nil
+					}
+					return nil, nil
+				},
+			},
+			"imageUrl": &graphql.Field{
+				Type:        graphql.String,
+				Description: "The URL of the users Google+ profile image.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					if u, ok := p.Source.(repository.User); ok {
+						imageUrl, err := u.ImageUrl.Value()
+						if err != nil {
+							return nil, nil
+						}
+						return imageUrl, nil
 					}
 					return nil, nil
 				},

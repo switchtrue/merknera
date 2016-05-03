@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/graphql-go/handler"
+	"github.com/mleonard87/merknera/security"
 	"golang.org/x/net/context"
 )
 
@@ -13,10 +14,26 @@ type CORSHandler struct {
 
 func (c CORSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// allow cross domain AJAX requests
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "content-type")
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	w.Header().Set("Access-Control-Allow-Headers", "content-type,authorization")
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
 
-	c.graphQLGoHandler.ContextHandler(context.Background(), w, r)
+	if r.Method != http.MethodOptions {
+		jwtCookie, _ := r.Cookie(security.JWT_COOKIE_NAME)
+		gqlContext := context.Background()
+
+		if jwtCookie != nil {
+			tokenStr := jwtCookie.Value
+
+			// Validate the JWT
+			token, _ := security.ValidateToken(tokenStr)
+
+			// Add the userId to the context for GraphQL.
+			gqlContext = context.WithValue(context.Background(), "userId", token.Claims["userId"])
+		}
+
+		c.graphQLGoHandler.ContextHandler(gqlContext, w, r)
+	}
 }
 
 func NewCORSHandler(p *handler.Config) *CORSHandler {

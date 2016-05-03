@@ -45,8 +45,6 @@ func (gmw GameMoveWorker) Start() {
 
 			select {
 			case work := <-gmw.GameMoveRequestWork:
-				log.Printf("[wkr%d] Working (move id: %d)\n", gmw.Id, work.GameMove.Id)
-
 				// Lock the current game move - its possible that the same move can end up in the work
 				// queue more than once if bots keep registering on the server is bounced. Lock the
 				// game move so it will only be processed one at a time.

@@ -105,18 +105,30 @@ func (b *Bot) setStatus(status BotStatus) error {
 }
 
 func (b *Bot) MarkOffline() error {
+	err := b.setStatus(BOT_STATUS_OFFLINE)
+	if err != nil {
+		return err
+	}
 	b.Status = BOT_STATUS_OFFLINE
-	return b.setStatus(BOT_STATUS_OFFLINE)
+	return nil
 }
 
 func (b *Bot) MarkOnline() error {
+	err := b.setStatus(BOT_STATUS_ONLINE)
+	if err != nil {
+		return err
+	}
 	b.Status = BOT_STATUS_ONLINE
-	return b.setStatus(BOT_STATUS_ONLINE)
+	return nil
 }
 
 func (b *Bot) MarkError() error {
+	err := b.setStatus(BOT_STATUS_ERROR)
+	if err != nil {
+		return err
+	}
 	b.Status = BOT_STATUS_ERROR
-	return b.setStatus(BOT_STATUS_ERROR)
+	return nil
 }
 
 func (b *Bot) DoesVersionExist(version string) (bool, error) {
@@ -320,10 +332,12 @@ func RegisterBot(name string, version string, gameType GameType, user User, rpcE
 	UPDATE move
 	SET status = $1
 	WHERE game_bot_id IN (
-	  SELECT gb.id
+	  SELECT gb2.id
 	  FROM bot b
-	  JOIN game_bot gb
-	    ON b.id = gb.bot_id
+	  JOIN game_bot gb1
+	    ON b.id = gb1.bot_id
+	  JOIN game_bot gb2
+	    ON gb1.game_id = gb2.game_id
 	  WHERE b.name = $2
 	)
 	AND status != $3

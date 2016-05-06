@@ -57,7 +57,7 @@ func Ping(rpcEndpoint string) error {
 	}
 
 	if res.StatusCode != http.StatusOK {
-		em := fmt.Sprintf("Response status no OK (200). Received %d", res.Status)
+		em := fmt.Sprintf("Response status not OK (200). Received %d", res.Status)
 		return errors.New(em)
 	}
 
@@ -92,7 +92,6 @@ func Call(rpcEndpoint string, method string, args interface{}, reply *RPCServerR
 
 	defer res.Body.Close()
 	nextMoveResponse, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
 
 	err = json.Unmarshal(nextMoveResponse, &reply)
 	if err != nil {

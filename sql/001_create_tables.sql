@@ -14,14 +14,14 @@ CREATE TABLE merknera_user (
 , created_datetime TIMESTAMP WITH TIME ZONE DEFAULT (now()) NOT NULL
 );
 
-CREATE INDEX ON merknera_user (username);
+CREATE INDEX ON merknera_user (email);
 
 CREATE TABLE merknera_user_token (
   id               SERIAL PRIMARY KEY NOT NULL
 , merknera_user_id INTEGER REFERENCES merknera_user (id) NOT NULL
 , token            CHAR(50) UNIQUE NOT NULL
 , description      VARCHAR(1000) NOT NULL
-, status           VARCHAR(20) DEFAULT 'CURRENT' NOT NULL CHECK (status IN ('CURRENT'))
+, status           VARCHAR(20) DEFAULT 'CURRENT' NOT NULL CHECK (status IN ('CURRENT', 'REVOKED'))
 );
 
 CREATE INDEX ON merknera_user_token (merknera_user_id);

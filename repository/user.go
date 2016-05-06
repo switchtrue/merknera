@@ -47,7 +47,7 @@ func (u *User) Update(name string, imageUrl string) error {
 
 var src = rand.NewSource(time.Now().UnixNano())
 
-func GenerateToken(n int) string {
+func generateToken(n int) string {
 	b := make([]byte, n)
 	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
 	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
@@ -65,10 +65,87 @@ func GenerateToken(n int) string {
 	return string(b)
 }
 
+func (u *User) Tokens() ([]UserToken, error) {
+	db := GetDB()
+	rows, err := db.Query(`
+	SELECT
+	  id
+	, token
+	, description
+	, status
+	FROM merknera_user_token
+	WHERE merknera_user_id = $1
+	AND status = $2
+	ORDER BY description
+	`, u.Id, string(USER_TOKEN_STATUS_CURRENT))
+	if err != nil {
+		log.Printf("An error occurred in user.Tokens():1:\n%s\n", err)
+		return []UserToken{}, err
+	}
+
+	var utList []UserToken
+	for rows.Next() {
+		var ut UserToken
+		var status string
+		err := rows.Scan(&ut.Id, &ut.Token, &ut.Description, &status)
+		if err != nil {
+			log.Printf("An error occurred in user.Tokens():2:\n%s\n", err)
+			return utList, err
+		}
+		ut.Status = UserTokenStatus(status)
+		utList = append(utList, ut)
+	}
+
+	return utList, nil
+}
+
+func (u *User) CreateToken(description string) (UserToken, error) {
+	var tokenId int
+	db := GetDB()
+	token := generateToken(50)
+	err := db.QueryRow(`
+	INSERT INTO merknera_user_token (
+	  merknera_user_id
+	, token
+	, description
+	) VALUES (
+	  $1
+	, $2
+	, $3
+	) RETURNING id
+	`, u.Id, token, description).Scan(&tokenId)
+	if err != nil {
+		log.Printf("An error occurred in user.CreateToken():1:\n%s\n", err)
+		return UserToken{}, err
+	}
+
+	userToken, err := GetUserTokenById(tokenId)
+	if err != nil {
+		log.Printf("An error occurred in user.CreateToken():2:\n%s\n", err)
+		return UserToken{}, err
+	}
+	return userToken, nil
+}
+
+func (u *User) RevokeToken(tokenId int) error {
+	db := GetDB()
+	_, err := db.Exec(`
+	UPDATE merknera_user_token
+	SET status = $1
+	WHERE id = $2
+	AND merknera_user_id = $3
+	`, string(USER_TOKEN_STATUS_REVOKED), tokenId, u.Id)
+	if err != nil {
+		log.Printf("An error occurred in user.RevokeToken():\n%s\n", err)
+		return err
+	}
+
+	return nil
+}
+
 func CreateUser(name, email, imageUrl string) (User, error) {
 	var userId int
 	db := GetDB()
-	token := GenerateToken(tokenLength)
 	err := db.QueryRow(`
 	INSERT INTO merknera_user (
 	  name
@@ -82,20 +159,6 @@ func CreateUser(name, email, imageUrl string) (User, error) {
 	`, name, email, imageUrl).Scan(&userId)
 	if err != nil {
 		log.Printf("An error occurred in user.CreateUser():1:\n%s\n", err)
-		return User{}, err
-	}
-
-	_, err = db.Exec(`
-	INSERT INTO merknera_user_token (
-	  merknera_user_id
-	, token
-	) VALUES (
-	  $1
-	, $2
-	)
-	`, userId, token)
-	if err != nil {
-		log.Printf("An error occurred in user.CreateUser():2:\n%s\n", err)
 		return User{}, err
 	}
 
@@ -159,8 +222,9 @@ func GetUserByToken(token string) (User, error) {
 	FROM merknera_user_token mut
 	JOIN merknera_user mu
 	  ON mut.merknera_user_id = mu.id
-	WHERE token = $1
-	`, token).Scan(&user.Id, &user.Name, &user.Email, &user.ImageUrl)
+	WHERE mut.token = $1
+	  AND mut.status = $2
+	`, token, string(USER_TOKEN_STATUS_CURRENT)).Scan(&user.Id, &user.Name, &user.Email, &user.ImageUrl)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			em := fmt.Sprintf("User with Token \"%s\" is not currently registered with Merknera", token)

@@ -74,7 +74,7 @@ func (b *Bot) Ping() (bool, error) {
 		}
 		// This is actually fine. If we can't reach the bot it gets marked
 		// as offline and all is good.
-		log.Printf("Ping of %s complete - OFFLINE\n", b.Name)
+		log.Printf("Ping of %s complete - OFFLINE (%s)\n", b.Name, err.Error())
 		return false, nil
 	}
 

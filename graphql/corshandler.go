@@ -3,6 +3,8 @@ package graphql
 import (
 	"net/http"
 
+	"os"
+
 	"github.com/graphql-go/handler"
 	"github.com/mleonard87/merknera/security"
 	"golang.org/x/net/context"
@@ -14,7 +16,7 @@ type CORSHandler struct {
 
 func (c CORSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// allow cross domain AJAX requests
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("MERKNERA_ALLOW_ORIGIN"))
 	w.Header().Set("Access-Control-Allow-Headers", "content-type,authorization")
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
 

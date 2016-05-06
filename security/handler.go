@@ -3,6 +3,7 @@ package security
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"database/sql"
 
@@ -13,7 +14,7 @@ type LoginHandler struct{}
 
 func (l LoginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// allow cross domain AJAX requests
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("MERKNERA_ALLOW_ORIGIN"))
 	w.Header().Set("Access-Control-Allow-Headers", "content-type,authorization")
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
 
@@ -74,7 +75,7 @@ type LogoutHandler struct{}
 
 func (l LogoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// allow cross domain AJAX requests
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("MERKNERA_ALLOW_ORIGIN"))
 	w.Header().Set("Access-Control-Allow-Headers", "content-type,authorization")
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
 

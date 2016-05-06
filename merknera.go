@@ -48,8 +48,10 @@ func registerAboutHandler() {
 }
 
 func registerLoginHandler() {
-	lh := security.LoginHandler{}
-	http.Handle("/login", lh)
+	lih := security.LoginHandler{}
+	http.Handle("/login", lih)
+	loh := security.LogoutHandler{}
+	http.Handle("/logout", loh)
 }
 
 func verifyBotsAndQueueMoves() {
@@ -84,7 +86,7 @@ func main() {
 
 	gameworker.StartGameMoveDispatcher(4)
 
-	verifyBotsAndQueueMoves()
+	go verifyBotsAndQueueMoves()
 
 	fmt.Println("Merknera is now listening on localhost:8080")
 	http.ListenAndServe(":8080", nil)

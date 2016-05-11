@@ -130,6 +130,37 @@ var BotType = graphql.NewObject(
 					return nil, nil
 				},
 			},
+			"gamesDrawn": &graphql.Field{
+				Type:        graphql.Int,
+				Description: "The number of games this bot has drawn.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					if bot, ok := p.Source.(repository.Bot); ok {
+						return bot.GamesDrawnCount()
+					}
+					return nil, nil
+				},
+			},
+			"currentScore": &graphql.Field{
+				Type:        graphql.Float,
+				Description: "The current score (as a percentage) of the bot. This is ((gamesWon + gamesDrawn) / gamesPlayed) * 100.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					if bot, ok := p.Source.(repository.Bot); ok {
+						return bot.CurrentScore()
+					}
+					return nil, nil
+				},
+			},
+			"lastOnlineDatetime": &graphql.Field{
+				Type:        graphql.String,
+				Description: "The last known date/time that this bot was online.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					if bot, ok := p.Source.(repository.Bot); ok {
+						t := bot.LastOnlineDateTime
+						return t.UTC().Format("2006-01-02T15:04:05Z"), nil
+					}
+					return nil, nil
+				},
+			},
 		},
 	},
 )

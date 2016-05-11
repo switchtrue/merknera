@@ -2,6 +2,8 @@ package repository
 
 import (
 	"log"
+	"math"
+	"time"
 
 	"database/sql"
 
@@ -20,18 +22,25 @@ const (
 )
 
 type Bot struct {
-	Id                  int
-	Name                string
-	Version             string
-	gameTypeId          int
-	gameType            GameType
-	userId              int
-	user                User
-	RPCEndpoint         string
-	ProgrammingLanguage string
-	Website             string
-	Description         string
-	Status              BotStatus
+	Id                     int
+	Name                   string
+	Version                string
+	gameTypeId             int
+	gameType               GameType
+	userId                 int
+	user                   User
+	RPCEndpoint            string
+	ProgrammingLanguage    string
+	Website                string
+	Description            string
+	Status                 BotStatus
+	LastOnlineDateTime     time.Time
+	gamesWonCountLoaded    bool
+	gamesWonCount          int
+	gamesDrawnCountLoaded  bool
+	gamesDrawnCount        int
+	gamesPlayedCountLoaded bool
+	gamesPlayedCount       int
 }
 
 func (b *Bot) GameType() (GameType, error) {
@@ -90,12 +99,26 @@ func (b *Bot) Ping() (bool, error) {
 
 func (b *Bot) setStatus(status BotStatus) error {
 	db := GetDB()
-	_, err := db.Exec(`
-	UPDATE bot
-	SET status = $1
-	WHERE id = $2
-	AND status != $3
-	`, string(status), b.Id, string(BOT_STATUS_SUPERSEDED))
+
+	var err error
+	if status == BOT_STATUS_ONLINE || status == BOT_STATUS_ERROR {
+		_, err = db.Exec(`
+		UPDATE bot
+		SET
+		  status = $1
+		, last_online_datetime = $2
+		WHERE id = $3
+		AND status != $4
+		`, string(status), time.Now(), b.Id, string(BOT_STATUS_SUPERSEDED))
+	} else {
+		_, err = db.Exec(`
+		UPDATE bot
+		SET status = $1
+		WHERE id = $2
+		AND status != $3
+		`, string(status), b.Id, string(BOT_STATUS_SUPERSEDED))
+	}
+
 	if err != nil {
 		log.Printf("An error occurred in bot.setStatus():\n%s\n", err)
 		return err
@@ -164,6 +187,7 @@ func (b *Bot) GamesPlayed() ([]Game, error) {
 	  ON gb.game_id = g.id
 	 AND g.status != $1
 	WHERE bot_id = $2
+	ORDER BY g.status
 	`, string(GAME_STATUS_SUPERSEDED), b.Id)
 	if err != nil {
 		log.Printf("An error occurred in bot.GamesPlayedCount():\n%s\n", err)
@@ -187,6 +211,9 @@ func (b *Bot) GamesPlayed() ([]Game, error) {
 }
 
 func (b *Bot) GamesPlayedCount() (int, error) {
+	if b.gamesPlayedCountLoaded {
+		return b.gamesPlayedCount, nil
+	}
 	var count int
 	db := GetDB()
 	err := db.QueryRow(`
@@ -205,10 +232,16 @@ func (b *Bot) GamesPlayedCount() (int, error) {
 		return 0, err
 	}
 
+	b.gamesPlayedCountLoaded = true
+	b.gamesPlayedCount = count
+
 	return count, nil
 }
 
 func (b *Bot) GamesWonCount() (int, error) {
+	if b.gamesWonCountLoaded {
+		return b.gamesWonCount, nil
+	}
 	var count int
 	db := GetDB()
 	err := db.QueryRow(`
@@ -226,6 +259,53 @@ func (b *Bot) GamesWonCount() (int, error) {
 		log.Printf("An error occurred in bot.GamesWonCount():\n%s\n", err)
 		return 0, err
 	}
+
+	b.gamesWonCountLoaded = true
+	b.gamesWonCount = count
+
+	return count, nil
+}
+
+func (b *Bot) GamesDrawnCount() (int, error) {
+	if b.gamesDrawnCountLoaded {
+		return b.gamesDrawnCount, nil
+	}
+	var count int
+	db := GetDB()
+	err := db.QueryRow(`
+	SELECT COUNT(t.*) games_drawn_count
+	FROM (
+	  SELECT
+	    g.id
+	  FROM game_bot gb
+	  JOIN game g
+	    ON gb.game_id = g.id
+	    AND g.status = $1
+	  JOIN game_bot gb2
+	    ON g.id = gb2.game_id
+	  JOIN move m
+	    ON gb2.id = m.game_bot_id
+	  WHERE gb.bot_id = $2
+	  GROUP BY g.id
+	  HAVING
+	    MAX(
+	      CASE m.winner
+		WHEN TRUE THEN 1
+		ELSE 0
+	      END
+	    ) = 0
+	) t
+	`, string(GAME_STATUS_COMPLETE), b.Id).Scan(&count)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, nil
+		}
+		log.Printf("An error occurred in bot.GamesDrawnCount():\n%s\n", err)
+		return 0, err
+	}
+
+	b.gamesDrawnCountLoaded = true
+	b.gamesDrawnCount = count
 
 	return count, nil
 }
@@ -287,6 +367,34 @@ func (b *Bot) ListAwaitingMoves() ([]GameMove, error) {
 	}
 
 	return gameMoveList, nil
+}
+
+func (b *Bot) CurrentScore() (float64, error) {
+	played, err := b.GamesPlayedCount()
+	if err != nil {
+		played = 0
+	}
+
+	if played == 0 {
+		return 0, err
+	}
+
+	won, err := b.GamesWonCount()
+	if err != nil {
+		won = 0
+	}
+
+	drawn, err := b.GamesDrawnCount()
+	if err != nil {
+		drawn = 0
+	}
+
+	score := ((float64(won) + float64(drawn)) / float64(played)) * 100.0
+
+	shift := math.Pow(10, float64(2))
+	rounded := math.Floor((score*shift)+.5) / shift
+
+	return rounded, nil
 }
 
 func RegisterBot(name string, version string, gameType GameType, user User, rpcEndpoint string, programmingLanguage string, website string, description string) (Bot, error) {
@@ -404,9 +512,10 @@ func GetBotById(id int) (Bot, error) {
 	, website
 	, description
 	, status
+	, last_online_datetime
 	FROM bot
 	WHERE id = $1
-	`, id).Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &bot.Description, &status)
+	`, id).Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &bot.Description, &status, &bot.LastOnlineDateTime)
 	if err != nil {
 		log.Printf("An error occurred in bot.GetBotById():\n%s\n", err)
 		return Bot{}, err
@@ -432,10 +541,11 @@ func GetBotByName(name string) (Bot, error) {
 	, website
 	, description
 	, status
+	, last_online_datetime
 	FROM bot
 	WHERE name = $1
 	AND status != $2
-	`, name, string(BOT_STATUS_SUPERSEDED)).Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &bot.Description, &status)
+	`, name, string(BOT_STATUS_SUPERSEDED)).Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &bot.Description, &status, &bot.LastOnlineDateTime)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			log.Printf("An error occurred in bot.GetBotByName():\n%s\n", err)
@@ -461,6 +571,7 @@ func ListBotsForGameType(gameType GameType) ([]Bot, error) {
 	, b.website
 	, b.description
 	, b.status
+	, b.last_online_datetime
 	FROM bot b
 	WHERE b.game_type_id = $1
 	AND b.status != $2
@@ -474,7 +585,7 @@ func ListBotsForGameType(gameType GameType) ([]Bot, error) {
 	for rows.Next() {
 		var bot Bot
 		var status string
-		err := rows.Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &bot.Description, &status)
+		err := rows.Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &bot.Description, &status, &bot.LastOnlineDateTime)
 		if err != nil {
 			log.Printf("An error occurred in bot.ListBotsForGameType():\n%s\n", err)
 			return botList, err
@@ -500,6 +611,7 @@ func ListBots() ([]Bot, error) {
 	, b.website
 	, b.description
 	, b.status
+	, b.last_online_datetime
 	FROM bot b
 	WHERE status != $1
 	ORDER BY b.name, b.version
@@ -513,7 +625,7 @@ func ListBots() ([]Bot, error) {
 	for rows.Next() {
 		var bot Bot
 		var status string
-		err := rows.Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &bot.Description, &status)
+		err := rows.Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &bot.Description, &status, &bot.LastOnlineDateTime)
 		if err != nil {
 			log.Printf("An error occurred in bot.ListBots():2:\n%s\n", err)
 			return botList, err

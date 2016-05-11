@@ -3,14 +3,19 @@ package repository
 import (
 	"encoding/json"
 	"log"
+	"time"
+
+	"github.com/lib/pq"
 )
 
 type GameMove struct {
-	Id        int
-	gameBotId int
-	gameBot   GameBot
-	Status    GameMoveStatus
-	Winner    bool
+	Id            int
+	gameBotId     int
+	gameBot       GameBot
+	Status        GameMoveStatus
+	Winner        bool
+	StartDateTime pq.NullTime
+	EndDateTime   pq.NullTime
 }
 
 type GameMoveStatus string
@@ -34,11 +39,47 @@ func (gm *GameMove) GameBot() (GameBot, error) {
 	return gm.gameBot, nil
 }
 
+func (gm *GameMove) SetStartDateTime() error {
+	db := GetDB()
+	_, err := db.Exec(`
+	UPDATE move
+	SET
+	  start_datetime = $1
+	, end_datetime = NULL
+	WHERE id = $2
+	AND status != $3
+	`, time.Now().UTC(), gm.Id, string(GAME_STATUS_SUPERSEDED))
+	if err != nil {
+		log.Printf("An error occurred in gamemove.SetStartDateTime():\n%s\n", err)
+		return err
+	}
+
+	return nil
+}
+
+func (gm *GameMove) SetEndDateTime() error {
+	db := GetDB()
+	_, err := db.Exec(`
+	UPDATE move
+	SET
+	  end_datetime = $1
+	WHERE id = $2
+	AND status != $3
+	`, time.Now().UTC(), gm.Id, string(GAME_STATUS_SUPERSEDED))
+	if err != nil {
+		log.Printf("An error occurred in gamemove.SetEndDateTime():\n%s\n", err)
+		return err
+	}
+
+	return nil
+}
+
 func (gm *GameMove) MarkComplete() error {
 	db := GetDB()
 	_, err := db.Exec(`
 	UPDATE move
-	SET status = $1
+	SET
+	  status = $1
 	WHERE id = $2
 	AND status != $3
 	`, string(GAMEMOVE_STATUS_COMPLETE), gm.Id, string(GAME_STATUS_SUPERSEDED))
@@ -162,9 +203,11 @@ func GetGameMoveById(id int) (GameMove, error) {
 	, game_bot_id
 	, status
 	, winner
+	, start_datetime
+	, end_datetime
 	FROM move
 	WHERE id = $1
-	`, id).Scan(&gameMove.Id, &gameMove.gameBotId, &status, &gameMove.Winner)
+	`, id).Scan(&gameMove.Id, &gameMove.gameBotId, &status, &gameMove.Winner, &gameMove.StartDateTime, &gameMove.EndDateTime)
 	if err != nil {
 		log.Printf("An error occurred in gamemove.GetGameMoveById():\n%s\n", err)
 		return GameMove{}, err

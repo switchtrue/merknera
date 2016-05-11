@@ -202,6 +202,8 @@ func (g *Game) Moves() ([]GameMove, error) {
 	, m.game_bot_id
 	, m.status
 	, m.winner
+	, m.start_datetime
+	, m.end_datetime
 	FROM game_bot gb
 	JOIN move m
 	  ON gb.id = m.game_bot_id
@@ -217,7 +219,7 @@ func (g *Game) Moves() ([]GameMove, error) {
 	for rows.Next() {
 		var gm GameMove
 		var status string
-		err := rows.Scan(&gm.Id, &gm.gameBotId, &status, &gm.Winner)
+		err := rows.Scan(&gm.Id, &gm.gameBotId, &status, &gm.Winner, &gm.StartDateTime, &gm.EndDateTime)
 		if err != nil {
 			log.Printf("An error occurred in game.Moves():2:\n%s\n", err)
 			return gameMoves, err

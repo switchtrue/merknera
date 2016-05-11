@@ -139,7 +139,17 @@ func (gmw GameMoveWorker) Start() {
 				var rsr rpchelper.RPCServerResponse
 				rsr.Result = reply
 				log.Printf("[wkr%d] Calling %s for %s (move id: %d)\n", gmw.Id, method, bot.Name, work.GameMove.Id)
+				err = work.GameMove.SetStartDateTime()
+				if err != nil {
+					log.Printf("[wkr%d] Error setting start_datetime (game move id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id)
+					continue
+				}
 				err = rpchelper.Call(bot.RPCEndpoint, method, params, &rsr)
+				err = work.GameMove.SetEndDateTime()
+				if err != nil {
+					log.Printf("[wkr%d] Error setting end_datetime (game move id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id)
+					continue
+				}
 				log.Printf("[wkr%d] Call %s complete for %s (move id: %d)\n", gmw.Id, method, bot.Name, work.GameMove.Id)
 				if err != nil {
 					sendError(gameManager, work.GameMove, err)

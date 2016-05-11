@@ -60,6 +60,34 @@ var GameMoveType = graphql.NewObject(
 					return nil, nil
 				},
 			},
+			"startDateTime": &graphql.Field{
+				Type:        graphql.String,
+				Description: "The date and time that this move was started. This may not be accurate if endDateTime is null.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					if gm, ok := p.Source.(repository.GameMove); ok {
+						t := gm.StartDateTime
+						if t.Valid {
+							return t.Time.UTC().Format("2006-01-02T15:04:05Z"), nil
+						}
+						return nil, nil
+					}
+					return nil, nil
+				},
+			},
+			"endDateTime": &graphql.Field{
+				Type:        graphql.String,
+				Description: "The date and time that this move was completed.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					if gm, ok := p.Source.(repository.GameMove); ok {
+						t := gm.EndDateTime
+						if t.Valid {
+							return t.Time.UTC().Format("2006-01-02T15:04:05Z"), nil
+						}
+						return nil, nil
+					}
+					return nil, nil
+				},
+			},
 		},
 	},
 )

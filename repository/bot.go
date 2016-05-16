@@ -74,7 +74,7 @@ func (b *Bot) User() (User, error) {
 // then mark te bot as offline and will not participate in any further games until
 // it is found to be online again.
 func (b *Bot) Ping() (bool, error) {
-	b.Logf("Ping [BEGIN]: Endpoint %s", b.RPCEndpoint)
+	b.Logf("RPC call [BEGIN]: Status.Ping %s", b.RPCEndpoint)
 	err := rpchelper.Ping(b.RPCEndpoint)
 	if err != nil {
 		err2 := b.MarkOffline()
@@ -84,7 +84,7 @@ func (b *Bot) Ping() (bool, error) {
 		}
 		// This is actually fine. If we can't reach the bot it gets marked
 		// as offline and all is good.
-		b.Logf("Ping [END]: Offline: ", err.Error())
+		b.Logf("RPC call [ END ]: Status.Ping Offline: ", err.Error())
 		return false, nil
 	}
 
@@ -94,7 +94,7 @@ func (b *Bot) Ping() (bool, error) {
 		return false, err
 	}
 
-	b.Log("Ping [END]: Online")
+	b.Log("RPC call [ END ]: Status.Ping Online")
 	return true, nil
 }
 

@@ -144,7 +144,7 @@ func (gmw GameMoveWorker) Start() {
 					log.Printf("[wkr%d] Error setting start_datetime (game move id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id)
 					continue
 				}
-				bot.Logf("RPC Call [BEGIN]: %s (gameId: %d)", method, game.Id)
+				bot.Logf("RPC call [BEGIN]: %s (gameId: %d)", method, game.Id)
 				rpcErr := rpchelper.Call(bot.RPCEndpoint, method, params, &rsr)
 				err = work.GameMove.SetEndDateTime()
 				if err != nil {
@@ -161,7 +161,7 @@ func (gmw GameMoveWorker) Start() {
 					}
 					continue
 				} else {
-					bot.Logf("RPC Call [END]: %s Success (gameId: %d)", method, game.Id)
+					bot.Logf("RPC call [ END ]: %s Success (gameId: %d)", method, game.Id)
 				}
 
 				if res, ok := rsr.Result.(map[string]interface{}); ok {
@@ -196,8 +196,6 @@ func (gmw GameMoveWorker) Start() {
 							}
 						}
 
-						bot.Logf("Game complete (gameId: %d): ", err)
-
 						err = game.MarkComplete()
 						if err != nil {
 							log.Printf("[wkr%d] Error marking game as complete (game id: %d):\n%v\n", gmw.Id, err, game.Id)
@@ -211,6 +209,8 @@ func (gmw GameMoveWorker) Start() {
 						// Send each player a Complete notification.
 						cm := gameManager.GetCompleteRPCMethodName()
 						for _, p := range players {
+							bot.Logf("Game complete (gameId: %d): ", game.Id)
+
 							cp, err := gameManager.GetCompleteRPCParams(p, gameResult)
 							if err != nil {
 								log.Printf("[wkr%d] Error obtaining complete RPC params for player (game bot id: %d):\n%v\n", gmw.Id, err, p.Id)
@@ -223,11 +223,13 @@ func (gmw GameMoveWorker) Start() {
 								continue
 							}
 
+							pb.Logf("RPC call [BEGIN]: %s (gameId: %d)", cm, game.Id)
 							err = rpchelper.Notify(pb.RPCEndpoint, cm, cp)
 							if err != nil {
 								log.Printf("[wkr%d] Error notifying player for complete game (bot id: %d):\n%v\n", gmw.Id, err, pb.Id)
 								continue
 							}
+							pb.Logf("RPC call [ END ]: %s (gameId: %d)", cm, game.Id)
 						}
 					}
 
@@ -271,10 +273,17 @@ func sendError(gm games.GameManager, gameMove repository.GameMove, originalErr e
 		log.Println("Error in sendError (game move id %d):2:\n%s\n", gameMove.Id, err)
 	}
 
-	err = rpchelper.Notify(bot.RPCEndpoint, em, ep)
+	g, err := gb.Game()
 	if err != nil {
 		log.Println("Error in sendError (game move id %d):3:\n%s\n", gameMove.Id, err)
 	}
+
+	bot.Logf("RPC Call [BEGIN]: %s (gameId: %d)", em, g.Id)
+	err = rpchelper.Notify(bot.RPCEndpoint, em, ep)
+	if err != nil {
+		log.Println("Error in sendError (game move id %d):4:\n%s\n", gameMove.Id, err)
+	}
+	bot.Logf("RPC Call [ END ]: %s (gameId: %d)", em, g.Id)
 }
 
 // Stop tells the worker to stop listening for work requests.

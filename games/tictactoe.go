@@ -74,11 +74,17 @@ func (tgm TicTacToeGameManager) GenerateGames(bot repository.Bot) []repository.G
 			if err != nil {
 				log.Fatal(err)
 			}
+
+			bot.Logf("Scheduled game with %s. You are player two (gameId: %d)", b.Name, game1.Id)
+
 			// Create a game for these two bots with the initial bot as player 2
 			game2, err := createGameWithPlayers(gameType, &bot, &b)
 			if err != nil {
 				log.Fatal(err)
 			}
+
+			bot.Logf("Scheduled game with %s. You are player one (gameId: %d)", b.Name, game2.Id)
+
 			gameList = append(gameList, game1, game2)
 		}
 	}

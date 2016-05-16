@@ -167,7 +167,7 @@ func (gmw GameMoveWorker) Start() {
 				if res, ok := rsr.Result.(map[string]interface{}); ok {
 					gs, gameResult, err := gameManager.ProcessMove(work.GameMove, res)
 					if err != nil {
-						bot.Logf("Error processing move (gameId: %d): ", err)
+						bot.Logf("Error processing move (gameId: %d): %s", game.Id, err)
 						sendError(gameManager, work.GameMove, err)
 						err = bot.MarkError()
 						if err != nil {
@@ -209,7 +209,7 @@ func (gmw GameMoveWorker) Start() {
 						// Send each player a Complete notification.
 						cm := gameManager.GetCompleteRPCMethodName()
 						for _, p := range players {
-							bot.Logf("Game complete (gameId: %d): ", game.Id)
+							bot.Logf("Game complete (gameId: %d)", game.Id)
 
 							cp, err := gameManager.GetCompleteRPCParams(p, gameResult)
 							if err != nil {
@@ -278,12 +278,24 @@ func sendError(gm games.GameManager, gameMove repository.GameMove, originalErr e
 		log.Println("Error in sendError (game move id %d):3:\n%s\n", gameMove.Id, err)
 	}
 
-	bot.Logf("RPC Call [BEGIN]: %s (gameId: %d)", em, g.Id)
-	err = rpchelper.Notify(bot.RPCEndpoint, em, ep)
+	players, err := g.Players()
 	if err != nil {
 		log.Println("Error in sendError (game move id %d):4:\n%s\n", gameMove.Id, err)
 	}
-	bot.Logf("RPC Call [ END ]: %s (gameId: %d)", em, g.Id)
+
+	for _, p := range players {
+		pb, _ := p.Bot()
+		pb.Logf("Game suspended %s caused an error (gameId: %d)", bot.Name, g.Id)
+	}
+
+	bot.Logf("RPC call [BEGIN]: %s (gameId: %d)", em, g.Id)
+	err = rpchelper.Notify(bot.RPCEndpoint, em, ep)
+	if err != nil {
+		bot.Logf("RPC call [ END ]: %s (gameId: %d) error: %s", em, g.Id, err)
+		log.Println("Error in sendError (game move id %d):5:\n%s\n", gameMove.Id, err)
+	} else {
+		bot.Logf("RPC call [ END ]: %s (gameId: %d) success", em, g.Id)
+	}
 }
 
 // Stop tells the worker to stop listening for work requests.

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"time"
@@ -22,7 +23,7 @@ const (
 )
 
 type Bot struct {
-	Id                     int
+	Id                     int `json:"id"`
 	Name                   string
 	Version                string
 	gameTypeId             int
@@ -73,7 +74,7 @@ func (b *Bot) User() (User, error) {
 // then mark te bot as offline and will not participate in any further games until
 // it is found to be online again.
 func (b *Bot) Ping() (bool, error) {
-	log.Printf("Pinging %s on %s\n", b.Name, b.RPCEndpoint)
+	b.Logf("Ping [BEGIN]: Endpoint %s", b.RPCEndpoint)
 	err := rpchelper.Ping(b.RPCEndpoint)
 	if err != nil {
 		err2 := b.MarkOffline()
@@ -83,7 +84,7 @@ func (b *Bot) Ping() (bool, error) {
 		}
 		// This is actually fine. If we can't reach the bot it gets marked
 		// as offline and all is good.
-		log.Printf("Ping of %s complete - OFFLINE (%s)\n", b.Name, err.Error())
+		b.Logf("Ping [END]: Offline: ", err.Error())
 		return false, nil
 	}
 
@@ -93,7 +94,7 @@ func (b *Bot) Ping() (bool, error) {
 		return false, err
 	}
 
-	log.Printf("Ping of %s complete - ONLINE\n", b.Name)
+	b.Log("Ping [END]: Online")
 	return true, nil
 }
 

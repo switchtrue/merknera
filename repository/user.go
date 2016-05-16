@@ -10,7 +10,7 @@ import (
 )
 
 type User struct {
-	Id       int
+	Id       int `json:"id"`
 	Name     string
 	Email    string
 	ImageUrl sql.NullString

@@ -8,7 +8,7 @@ import (
 )
 
 type GameType struct {
-	Id       int
+	Id       int `json:"id"`
 	Mnemonic string
 	Name     string
 }

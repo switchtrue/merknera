@@ -9,7 +9,7 @@ import (
 )
 
 type GameMove struct {
-	Id            int
+	Id            int `json:"id"`
 	gameBotId     int
 	gameBot       GameBot
 	Status        GameMoveStatus

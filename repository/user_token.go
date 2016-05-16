@@ -10,7 +10,7 @@ const (
 )
 
 type UserToken struct {
-	Id          int
+	Id          int `json:"id"`
 	user_id     int
 	Token       string
 	Description string

@@ -3,7 +3,7 @@ package repository
 import "log"
 
 type GameBot struct {
-	Id           int
+	Id           int `json:"id"`
 	gameId       int
 	game         Game
 	botId        int

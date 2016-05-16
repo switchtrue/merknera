@@ -108,11 +108,42 @@ func MerkneraSchema() *graphql.Schema {
 			},
 			"bots": &graphql.Field{
 				Type: BotConnectionDefinition().ConnectionType,
-				Args: relay.ConnectionArgs,
+				Args: graphql.FieldConfigArgument{
+					"before": &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
+					"after": &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
+					"first": &graphql.ArgumentConfig{
+						Type: graphql.Int,
+					},
+					"last": &graphql.ArgumentConfig{
+						Type: graphql.Int,
+					},
+					"userId": &graphql.ArgumentConfig{
+						Type:        graphql.Int,
+						Description: "If a User ID is provided a list of bots will be returned that are owned by the specified user.",
+					},
+				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					args := relay.NewConnectionArguments(p.Args)
 
-					bots, _ := repository.ListBots()
+					var bots []repository.Bot
+					userId, isOK := p.Args["userId"].(int)
+					if isOK {
+						user, err := repository.GetUserById(int(userId))
+						if err != nil {
+							return nil, err
+						}
+						bots, err = user.ListBots()
+						if err != nil {
+							return nil, err
+						}
+					} else {
+						bots, _ = repository.ListBots()
+					}
+
 					botsArray := []interface{}{}
 					for _, b := range bots {
 						botsArray = append(botsArray, b)

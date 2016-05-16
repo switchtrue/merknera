@@ -192,6 +192,29 @@ func BotType() *graphql.Object {
 							return nil, nil
 						},
 					},
+					"logs": &graphql.Field{
+						Type:        graphql.NewList(BotLogType()),
+						Description: "The list of logs for this bot.",
+						Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+							// Get the userId from the context and only return bot logs if
+							// the currently logged in user is the bot owner.
+							userId, isOK := p.Context.Value("userId").(float64)
+							if isOK {
+								if bot, ok := p.Source.(repository.Bot); ok {
+									botOwner, err := bot.User()
+									if err != nil {
+										return nil, err
+									}
+
+									if botOwner.Id == int(userId) {
+										return bot.Logs()
+									}
+								}
+							}
+
+							return nil, nil
+						},
+					},
 				},
 				Interfaces: []*graphql.Interface{
 					nodeDefinitions.NodeInterface,

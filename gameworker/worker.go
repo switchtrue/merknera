@@ -144,25 +144,30 @@ func (gmw GameMoveWorker) Start() {
 					log.Printf("[wkr%d] Error setting start_datetime (game move id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id)
 					continue
 				}
-				err = rpchelper.Call(bot.RPCEndpoint, method, params, &rsr)
+				bot.Logf("RPC Call [BEGIN]: %s (gameId: %d)", method, game.Id)
+				rpcErr := rpchelper.Call(bot.RPCEndpoint, method, params, &rsr)
 				err = work.GameMove.SetEndDateTime()
 				if err != nil {
 					log.Printf("[wkr%d] Error setting end_datetime (game move id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id)
 					continue
 				}
 				log.Printf("[wkr%d] Call %s complete for %s (move id: %d)\n", gmw.Id, method, bot.Name, work.GameMove.Id)
-				if err != nil {
-					sendError(gameManager, work.GameMove, err)
+				if rpcErr != nil {
+					bot.Logf("RPC Call [END]: %s Error (gameId: %d): %s", method, game.Id, rpcErr)
+					sendError(gameManager, work.GameMove, rpcErr)
 					err = bot.MarkError()
 					if err != nil {
 						log.Printf("[wkr%d] Error marking a bot as error status (bot id: %d):\n%v\n", gmw.Id, err, bot.Id)
 					}
 					continue
+				} else {
+					bot.Logf("RPC Call [END]: %s Success (gameId: %d)", method, game.Id)
 				}
 
 				if res, ok := rsr.Result.(map[string]interface{}); ok {
 					gs, gameResult, err := gameManager.ProcessMove(work.GameMove, res)
 					if err != nil {
+						bot.Logf("Error processing move (gameId: %d): ", err)
 						sendError(gameManager, work.GameMove, err)
 						err = bot.MarkError()
 						if err != nil {
@@ -190,6 +195,8 @@ func (gmw GameMoveWorker) Start() {
 								log.Printf("[wkr%d] Error marking game move as win (game move id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id)
 							}
 						}
+
+						bot.Logf("Game complete (gameId: %d): ", err)
 
 						err = game.MarkComplete()
 						if err != nil {

@@ -143,6 +143,46 @@ func (u *User) RevokeToken(tokenId int) error {
 	return nil
 }
 
+func (u *User) ListBots() ([]Bot, error) {
+	db := GetDB()
+	rows, err := db.Query(`
+	SELECT
+	  b.id
+	, b.name
+	, b.version
+	, b.game_type_id
+	, b.user_id
+	, b.rpc_endpoint
+	, b.programming_language
+	, b.website
+	, b.description
+	, b.status
+	, b.last_online_datetime
+	FROM bot b
+	WHERE b.user_id = $1
+	AND b.status != $2
+	ORDER BY b.name, b.version
+	`, u.Id, string(BOT_STATUS_SUPERSEDED))
+	if err != nil {
+		return []Bot{}, err
+	}
+
+	var botList []Bot
+	for rows.Next() {
+		var bot Bot
+		var status string
+		err := rows.Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &bot.Description, &status, &bot.LastOnlineDateTime)
+		if err != nil {
+			log.Printf("An error occurred in user.ListBots():\n%s\n", err)
+			return botList, err
+		}
+		bot.Status = BotStatus(status)
+		botList = append(botList, bot)
+	}
+
+	return botList, nil
+}
+
 func CreateUser(name, email, imageUrl string) (User, error) {
 	var userId int
 	db := GetDB()

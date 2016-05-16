@@ -398,6 +398,57 @@ func (b *Bot) CurrentScore() (float64, error) {
 	return rounded, nil
 }
 
+func (b *Bot) Log(message string) {
+	db := GetDB()
+	_, err := db.Exec(`
+	INSERT INTO bot_log (
+	  bot_id
+	, message
+	) VALUES (
+	  $1
+	, $2
+	);
+	`, b.Id, message)
+	if err != nil {
+		log.Printf("An error occurred in bot.Log():\n%s\n", err)
+	}
+}
+
+func (b *Bot) Logf(format string, v ...interface{}) {
+	message := fmt.Sprintf(format, v...)
+	b.Log(message)
+}
+
+func (b *Bot) Logs() ([]BotLog, error) {
+	db := GetDB()
+	rows, err := db.Query(`
+	SELECT
+	  bl.id
+	, bl.message
+	, bl.created_datetime
+	FROM bot_log bl
+	WHERE bl.bot_id = $1
+	ORDER BY bl.created_datetime
+	`, b.Id)
+	if err != nil {
+		log.Printf("An error occurred in bot.Logs():1:\n%s\n", err)
+		return []BotLog{}, err
+	}
+
+	var botLogList []BotLog
+	for rows.Next() {
+		var botLog BotLog
+		err := rows.Scan(&botLog.Id, &botLog.Message, &botLog.CreatedDateTime)
+		if err != nil {
+			log.Printf("An error occurred in bot.Logs():2:\n%s\n", err)
+			return botLogList, err
+		}
+		botLogList = append(botLogList, botLog)
+	}
+
+	return botLogList, nil
+}
+
 func RegisterBot(name string, version string, gameType GameType, user User, rpcEndpoint string, programmingLanguage string, website string, description string) (Bot, error) {
 	var botId int
 	db := GetDB()

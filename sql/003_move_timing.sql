@@ -4,8 +4,6 @@ ADD COLUMN start_datetime TIMESTAMP WITH TIME ZONE;
 ALTER TABLE move
 ADD COLUMN end_datetime TIMESTAMP WITH TIME ZONE;
 
-DROP TABLE __move_start_end_time;
-
 CREATE TABLE __move_start_end_time (
   move_id INTEGER NOT NULL
 , game_bot_id INTEGER NOT NULL

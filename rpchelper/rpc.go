@@ -40,7 +40,7 @@ func Ping(rpcEndpoint string) error {
 		return err
 	}
 
-	timeout := time.Duration(10 * time.Second)
+	timeout := time.Duration(30 * time.Second)
 	client := &http.Client{
 		Timeout: timeout,
 	}

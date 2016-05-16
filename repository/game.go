@@ -285,6 +285,8 @@ func ListGames() ([]Game, error) {
 	, g.status
 	FROM game g
 	WHERE g.status != $1
+	ORDER BY
+	g.status
 	`, string(GAME_STATUS_SUPERSEDED))
 	if err != nil {
 		log.Printf("An error occurred in game.ListGames():1:\n%s\n", err)

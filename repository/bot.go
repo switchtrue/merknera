@@ -449,6 +449,111 @@ func (b *Bot) Logs() ([]BotLog, error) {
 	return botLogList, nil
 }
 
+func (b *Bot) Delete() error {
+	db := GetDB()
+	tx, err := db.Begin()
+	if err != nil {
+		log.Printf("An error occurred in bot.Delete():1:\n%s\n", err)
+		tx.Rollback()
+		return err
+	}
+
+	_, err = tx.Exec(`
+	DELETE FROM move
+	WHERE id IN (
+	  SELECT m.id
+	  FROM game_bot gb1
+	  JOIN game g
+	    ON gb1.game_id = g.id
+	  JOIN game_Bot gb2
+	    ON g.id = gb2.game_id
+	  JOIN move m
+	    ON gb2.id = m.game_bot_id
+	  WHERE gb1.bot_id = $1
+	)
+	`, b.Id)
+	if err != nil {
+		log.Printf("An error occurred in bot.Delete():2:\n%s\n", err)
+		tx.Rollback()
+		return err
+	}
+
+	rows, err := tx.Query(`
+	SELECT game_id
+	FROM game_bot
+	WHERE bot_id = $1
+	`, b.Id)
+	if err != nil {
+		log.Printf("An error occurred in bot.Delete():3:\n%s\n", err)
+		tx.Rollback()
+		return err
+	}
+
+	var gameIds []int
+	for rows.Next() {
+		var gameId int
+		err := rows.Scan(&gameId)
+		if err != nil {
+			log.Printf("An error occurred in bot.Delete():4:\n%s\n", err)
+			return err
+		}
+		gameIds = append(gameIds, gameId)
+	}
+
+	_, err = tx.Exec(`
+	DELETE FROM game_bot
+	WHERE id IN (
+	  SELECT gb2.id
+	  FROM game_bot gb1
+	  JOIN game g
+	    ON gb1.game_id = g.id
+	  JOIN game_Bot gb2
+	    ON g.id = gb2.game_id
+	  WHERE gb1.bot_id = $1
+	)
+	`, b.Id)
+	if err != nil {
+		log.Printf("An error occurred in bot.Delete():5:\n%s\n", err)
+		tx.Rollback()
+		return err
+	}
+
+	for _, g := range gameIds {
+		_, err = tx.Exec(`
+		DELETE FROM game
+		WHERE id = $1
+		`, g)
+		if err != nil {
+			log.Printf("An error occurred in bot.Delete():6:\n%s\n", err)
+			tx.Rollback()
+			return err
+		}
+	}
+
+	_, err = tx.Exec(`
+	DELETE FROM bot_log
+	WHERE bot_id = $1
+	`, b.Id)
+	if err != nil {
+		log.Printf("An error occurred in bot.Delete():7:\n%s\n", err)
+		tx.Rollback()
+		return err
+	}
+
+	_, err = tx.Exec(`
+	DELETE FROM bot
+	WHERE id = $1;
+	`, b.Id)
+	if err != nil {
+		log.Printf("An error occurred in bot.Delete():8:\n%s\n", err)
+		tx.Rollback()
+		return err
+	}
+
+	tx.Commit()
+	return nil
+}
+
 func RegisterBot(name string, version string, gameType GameType, user User, rpcEndpoint string, programmingLanguage string, website string, description string) (Bot, error) {
 	var botId int
 	db := GetDB()
@@ -607,6 +712,44 @@ func GetBotByName(name string) (Bot, error) {
 	bot.Status = BotStatus(status)
 
 	return bot, nil
+}
+
+func ListBotsByName(name string) ([]Bot, error) {
+	db := GetDB()
+	rows, err := db.Query(`
+	SELECT
+	  id
+	, name
+	, version
+	, game_type_id
+	, user_id
+	, rpc_endpoint
+	, programming_language
+	, website
+	, description
+	, status
+	, last_online_datetime
+	FROM bot
+	WHERE name = $1
+	`, name)
+	if err != nil {
+		return []Bot{}, err
+	}
+
+	var botList []Bot
+	for rows.Next() {
+		var bot Bot
+		var status string
+		err := rows.Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &bot.Description, &status, &bot.LastOnlineDateTime)
+		if err != nil {
+			log.Printf("An error occurred in bot.ListBotsForGameType():\n%s\n", err)
+			return botList, err
+		}
+		bot.Status = BotStatus(status)
+		botList = append(botList, bot)
+	}
+
+	return botList, nil
 }
 
 func ListBotsForGameType(gameType GameType) ([]Bot, error) {

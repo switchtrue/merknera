@@ -348,6 +348,59 @@ func MerkneraSchema() *graphql.Schema {
 					return nil, nil
 				},
 			},
+			"deleteBot": &graphql.Field{
+				Type:        graphql.Int,
+				Description: "Permanently delete a bot with the given id and all its prevous versions.",
+				Args: graphql.FieldConfigArgument{
+					"botId": &graphql.ArgumentConfig{
+						Type:        graphql.NewNonNull(graphql.Int),
+						Description: "The id bot to be deleted.",
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					userId, isOK := p.Context.Value("userId").(float64)
+					if isOK {
+						user, err := repository.GetUserById(int(userId))
+						if err != nil {
+							return nil, err
+						}
+
+						botId, isOK := p.Args["botId"].(int)
+						if isOK {
+							bot, err := repository.GetBotById(botId)
+							if err != nil {
+								return nil, err
+							}
+
+							botUser, err := bot.User()
+							if err != nil {
+								return nil, err
+							}
+
+							if botUser.Id == user.Id {
+								allBots, err := repository.ListBotsByName(bot.Name)
+								if err != nil {
+									return nil, err
+								}
+
+								for _, b := range allBots {
+									err = b.Delete()
+									if err != nil {
+										return nil, err
+									}
+									return bot.Id, nil
+								}
+							} else {
+								return nil, nil
+							}
+						}
+
+						return nil, nil
+					}
+
+					return nil, nil
+				},
+			},
 		},
 	})
 

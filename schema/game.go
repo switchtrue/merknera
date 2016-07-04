@@ -14,6 +14,19 @@ func GameConnectionDefinition() *relay.GraphQLConnectionDefinitions {
 		gameConnectionDefinition = relay.ConnectionDefinitions(relay.ConnectionConfig{
 			Name:     "Game",
 			NodeType: GameType(),
+			ConnectionFields: graphql.Fields{
+				"totalCount": &graphql.Field{
+					Type:        graphql.Int,
+					Description: "The total number of games.",
+					Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+						games, err := repository.ListGames()
+						if err != nil {
+							return nil, err
+						}
+						return len(games), nil
+					},
+				},
+			},
 		})
 	}
 

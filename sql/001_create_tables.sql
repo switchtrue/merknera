@@ -69,8 +69,8 @@ CREATE INDEX ON game (game_type_id);
 
 CREATE TABLE game_bot (
   id               SERIAL PRIMARY KEY NOT NULL
-, game_id          INTEGER NOT NULL
-, bot_id           INTEGER NOT NULL
+, game_id          INTEGER NOT NULL REFERENCES game (id) NOT NULL
+, bot_id           INTEGER NOT NULL REFERENCES bot_id (id) NOT NULL
 , play_sequence    INTEGER NOT NULL
 , created_datetime TIMESTAMP WITH TIME ZONE DEFAULT (now()) NOT NULL
 , UNIQUE (game_id, bot_id)

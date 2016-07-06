@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/graphql-go/handler"
+	"github.com/mleonard87/merknera/games"
 	"github.com/mleonard87/merknera/gameworker"
 	"github.com/mleonard87/merknera/graphql"
 	"github.com/mleonard87/merknera/repository"
@@ -68,16 +69,42 @@ func verifyBotsAndQueueMoves() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _, gm := range awaitingMoves {
-		gameworker.QueueGameMove(gm)
+
+	for _, gameMove := range awaitingMoves {
+		gb, err := gameMove.GameBot()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		g, err := gb.Game()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		gt, err := g.GameType()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		gameManagerConfig, err := games.GetGameManagerConfigByMnemonic(gt.Mnemonic)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		rpcMethodName, err := gameManagerConfig.GameManager.Resume(g)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		gameworker.QueueGameMove(rpcMethodName, gameMove)
 	}
 }
 
 func main() {
 	registerRPCHandler()
 	registerGraphQLHandler()
-	graphiql := os.Getenv("MERKNERA_GRAPHIQL")
-	if graphiql == "TRUE" {
+	enableGraphiql := os.Getenv("MERKNERA_GRAPHIQL")
+	if enableGraphiql == "TRUE" {
 		registerStaticFileServerHandler()
 	}
 	registerAboutHandler()
@@ -85,8 +112,8 @@ func main() {
 
 	gameworker.StartGameMoveDispatcher(4)
 
-	go verifyBotsAndQueueMoves()
+	//go verifyBotsAndQueueMoves()
 
 	fmt.Println("Merknera is now listening on localhost:8080")
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe("localhost:8080", nil)
 }

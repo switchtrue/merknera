@@ -145,7 +145,7 @@ func (gm *GameMove) SetGameState(gs interface{}) error {
 	return nil
 }
 
-func (gm *GameMove) GameState() (string, error) {
+func (gm *GameMove) GameStateString() (string, error) {
 	db := GetDB()
 	var gs string
 	err := db.QueryRow(`

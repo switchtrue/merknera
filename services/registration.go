@@ -126,7 +126,8 @@ func (h *RegistrationService) Register(r *http.Request, args *RegistrationArgs, 
 			}
 
 			for _, am := range awaitingMoves {
-				gameworker.QueueGameMove(am)
+				// TODO: Put a proper RPCMethod name in below
+				gameworker.QueueGameMove("", am)
 			}
 
 			return nil
@@ -151,22 +152,68 @@ func (h *RegistrationService) Register(r *http.Request, args *RegistrationArgs, 
 		reply.Message = responseMessage
 	}
 
-	gameManager, err := games.GetGameManager(gameType)
+	gameManagerConfig, err := games.GetGameManagerConfigByMnemonic(gameType.Mnemonic)
 	if err != nil {
 		em := "An error occurred whilst registering your bot."
 		log.Printf("%s\n%s\n", em, err)
 		return errors.New(em)
 	}
 
-	games := gameManager.GenerateGames(bot)
-	for _, g := range games {
-		gameMove, err := g.NextGameMove()
+	gt, err := bot.GameType()
+	if err != nil {
+		em := "An error occurred whilst registering your bot."
+		log.Printf("%s\n%s\n", em, err)
+		return errors.New(em)
+	}
+
+	otherBots, err := repository.ListBotsForGameTypeExcludingBot(gt, bot)
+	if err != nil {
+		em := "An error occurred whilst obtaining the list of other bots to play against."
+		log.Printf("%s\n%s\n", em, err)
+		return errors.New(em)
+	}
+
+	games := gameManagerConfig.GameManager.GetGamesForBot(bot, otherBots)
+
+	for _, players := range games {
+		game, err := repository.CreateGame(gt)
+		if err != nil {
+			em := "An error occurred whilst creating a game."
+			log.Printf("%s\n%s\n", em, err)
+			return errors.New(em)
+		}
+
+		for i, player := range players {
+			_, err = repository.CreateGameBot(game, *player, i)
+			if err != nil {
+				em := "An error occurred whilst creating game player."
+				log.Printf("%s\n%s\n", em, err)
+				return errors.New(em)
+			}
+		}
+
+		gm, err := game.NextGameMove()
 		if err != nil {
 			em := "An error occurred whilst generating games for your bot."
 			log.Printf("%s\n%s\n", em, err)
 			return errors.New(em)
 		}
-		gameworker.QueueGameMove(gameMove)
+
+		rpcMethod, initialPlayer, initialState, err := gameManagerConfig.GameManager.Begin(game)
+		if err != nil {
+			em := "An error occurred whilst beginning the game."
+			log.Printf("%s\n%s\n", em, err)
+			return errors.New(em)
+		}
+
+		_, err = repository.CreateGameMove(initialPlayer, initialState)
+		if err != nil {
+			em := "An error occurred whilst creating the first move."
+			log.Printf("%s\n%s\n", em, err)
+			return errors.New(em)
+		}
+
+		gameworker.QueueGameMove(rpcMethod, gm)
 	}
 
 	return nil

@@ -41,7 +41,7 @@ func GameMoveType() *graphql.Object {
 						Description: "The current state of the game at the this this move was played. If the move is COMPLETE then this is the state of the game after the move was played, otherwise it is the same of the game before the move is played.",
 						Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 							if gm, ok := p.Source.(repository.GameMove); ok {
-								return gm.GameState()
+								return gm.GameStateString()
 							}
 							return nil, nil
 						},

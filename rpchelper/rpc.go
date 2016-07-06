@@ -64,41 +64,45 @@ func Ping(rpcEndpoint string) error {
 	return nil
 }
 
-func Call(rpcEndpoint string, method string, args interface{}, reply *RPCServerResponse) error {
+func Call(rpcEndpoint string, method string, params interface{}) (*RPCServerResponse, error) {
 	rcr := new(RPCClientRequest)
 	rcr.JsonRpcVersion = "2.0"
 	rcr.Id = 1
 	rcr.Method = method
-	rcr.Params = args
+	rcr.Params = params
 
 	jsonBody, err := json.Marshal(*rcr)
 	if err != nil {
-		log.Fatal(err)
+		return &RPCServerResponse{}, err
 	}
 
 	client := &http.Client{}
 
 	req, err := http.NewRequest("POST", rpcEndpoint, bytes.NewBuffer(jsonBody))
 	if err != nil {
-		log.Fatal(err)
+		return &RPCServerResponse{}, err
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
 
 	res, err := client.Do(req)
 	if err != nil {
-		return err
+		return &RPCServerResponse{}, err
 	}
 
 	defer res.Body.Close()
 	nextMoveResponse, err := ioutil.ReadAll(res.Body)
-
-	err = json.Unmarshal(nextMoveResponse, &reply)
 	if err != nil {
-		return err
+		return &RPCServerResponse{}, err
 	}
 
-	return nil
+	var rpcResult RPCServerResponse
+	err = json.Unmarshal(nextMoveResponse, &rpcResult)
+	if err != nil {
+		return &RPCServerResponse{}, err
+	}
+
+	return &rpcResult, nil
 }
 
 func Notify(rpcEndpoint string, method string, args interface{}) error {

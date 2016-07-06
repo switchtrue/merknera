@@ -792,6 +792,47 @@ func ListBotsForGameType(gameType GameType) ([]Bot, error) {
 	return botList, nil
 }
 
+func ListBotsForGameTypeExcludingBot(gameType GameType, exclude Bot) ([]Bot, error) {
+	db := GetDB()
+	rows, err := db.Query(`
+	SELECT
+	  b.id
+	, b.name
+	, b.version
+	, b.game_type_id
+	, b.user_id
+	, b.rpc_endpoint
+	, b.programming_language
+	, b.website
+	, b.description
+	, b.status
+	, b.last_online_datetime
+	FROM bot b
+	WHERE b.game_type_id = $1
+	AND b.status != $2
+	AND b.id != $3
+	ORDER BY b.name, b.version
+	`, gameType.Id, string(BOT_STATUS_SUPERSEDED), exclude.Id)
+	if err != nil {
+		return []Bot{}, err
+	}
+
+	var botList []Bot
+	for rows.Next() {
+		var bot Bot
+		var status string
+		err := rows.Scan(&bot.Id, &bot.Name, &bot.Version, &bot.gameTypeId, &bot.userId, &bot.RPCEndpoint, &bot.ProgrammingLanguage, &bot.Website, &bot.Description, &status, &bot.LastOnlineDateTime)
+		if err != nil {
+			log.Printf("An error occurred in bot.ListBotsForGameType():\n%s\n", err)
+			return botList, err
+		}
+		bot.Status = BotStatus(status)
+		botList = append(botList, bot)
+	}
+
+	return botList, nil
+}
+
 func ListBots() ([]Bot, error) {
 	db := GetDB()
 	rows, err := db.Query(`

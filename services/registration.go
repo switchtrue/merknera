@@ -173,7 +173,7 @@ func (h *RegistrationService) Register(r *http.Request, args *RegistrationArgs, 
 		return errors.New(em)
 	}
 
-	games := gameManagerConfig.GameManager.GetGamesForBot(bot, otherBots)
+	games := gameManagerConfig.GameProvider.GetGamesForBot(bot, otherBots)
 
 	for _, players := range games {
 		game, err := repository.CreateGame(gt)
@@ -199,7 +199,7 @@ func (h *RegistrationService) Register(r *http.Request, args *RegistrationArgs, 
 			return errors.New(em)
 		}
 
-		rpcMethod, initialPlayer, initialState, err := gameManagerConfig.GameManager.Begin(game)
+		rpcMethod, initialPlayer, initialState, err := gameManagerConfig.GameProvider.Begin(game)
 		if err != nil {
 			em := "An error occurred whilst beginning the game."
 			log.Printf("%s\n%s\n", em, err)

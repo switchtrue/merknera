@@ -115,12 +115,6 @@ func (gmw GameMoveWorker) Start() {
 				//	}
 				//}
 
-				//gameManagerConfig, err := games.GetGameManagerConfig(gameType.Mnemonic)
-				//if err != nil {
-				//	log.Printf("[wkr%d] Error obtaining GameManager for game (gameType: %s):\n%v\n", gmw.Id, err, gameType)
-				//	continue
-				//}
-
 				gameManager, err := games.GetGameManager(work.RPCNamespace)
 				if err != nil {
 					log.Printf("[wkr%d] Error obtaining game manager for RPC namespace %s (game id: %d):\n%v\n", gmw.Id, work.RPCNamespace, game.Id, err)
@@ -157,8 +151,7 @@ func (gmw GameMoveWorker) Start() {
 				log.Printf("[wkr%d] Call %s complete for %s (move id: %d)\n", gmw.Id, work.RPCMethod, bot.Name, work.GameMove.Id)
 				if rpcErr != nil {
 					bot.Logf("RPC Call [END]: %s Error (gameId: %d): %s", work.RPCMethod, game.Id, rpcErr)
-					// TODO: sendError
-					//sendError(gameManager, work.GameMove, rpcErr)
+					gameManager.NotifyError()
 					err = bot.MarkError()
 					if err != nil {
 						log.Printf("[wkr%d] Error marking a bot as error status (bot id: %d):\n%v\n", gmw.Id, err, bot.Id)
@@ -168,89 +161,37 @@ func (gmw GameMoveWorker) Start() {
 					bot.Logf("RPC call [ END ]: %s Success (gameId: %d)", work.RPCMethod, game.Id)
 				}
 
-				gameResult, nextRPCMethodName, gs, err := gameManager.ProcessRPCResponse(work.RPCMethodName, work.GameMove, rpcResponse.Result)
+				nextRPCMethodName, nextMove, err := gameManager.ProcessRPCResponse(work.RPCMethodName, work.GameMove, rpcResponse.Result)
 
-				//if res, ok := rsr.Result.(map[string]interface{}); ok {
-				//gs, gameResult, err := gameManager.ProcessMove(work.GameMove, res)
 				if err != nil {
 					bot.Logf("Error processing move (gameId: %d): %s", game.Id, err)
-					// TODO: sendError
-					// sendError(gameManager, work.GameMove, err)
+					gameManager.NotifyError()
 					err = bot.MarkError()
 					if err != nil {
-						log.Printf("[wkr%d] Error marking a bot as error status after process move (bot id: %d):\n%v\n", gmw.Id, err, bot.Id)
+						log.Printf("[wkr%d] Error marking a bot as error status after process move (bot id: %d):\n%v\n", gmw.Id, bot.Id, err)
 					}
 					continue
 				}
 
-				//if gameResult == games.GAME_RESULT_UNDECIDED {
-				//	nextBot, err := gameManager.GetGameBotForNextMove(work.GameMove)
-				//	if err != nil {
-				//		log.Printf("[wkr%d] Error obtaining game bot for next move (game move id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id)
-				//		continue
-				//	}
-				//	nextMove, err := repository.CreateGameMove(nextBot, gs)
-				//	if err != nil {
-				//		log.Printf("[wkr%d] Error creating next game move (current game move id: %d, next game bot id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id, nextBot.Id)
-				//		continue
-				//	}
-				//	QueueGameMove(nextMove)
-				//} else {
-				//	if gameResult == games.GAME_RESULT_WIN {
-				//		err = work.GameMove.MarkAsWin()
-				//		if err != nil {
-				//			log.Printf("[wkr%d] Error marking game move as win (game move id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id)
-				//		}
-				//	}
-				//
-				//	err = game.MarkComplete()
-				//	if err != nil {
-				//		log.Printf("[wkr%d] Error marking game as complete (game id: %d):\n%v\n", gmw.Id, err, game.Id)
-				//	}
-				//	players, err := game.Players()
-				//	if err != nil {
-				//		log.Printf("[wkr%d] Error obtaining a player list for the game (game id: %d):\n%v\n", gmw.Id, err, game.Id)
-				//		continue
-				//	}
-				//
-				//	// Send each player a Complete notification.
-				//	cm := gameManager.GetCompleteRPCMethodName()
-				//	for _, p := range players {
-				//		bot.Logf("Game complete (gameId: %d)", game.Id)
-				//
-				//		cp, err := gameManager.GetCompleteRPCParams(p, gameResult)
-				//		if err != nil {
-				//			log.Printf("[wkr%d] Error obtaining complete RPC params for player (game bot id: %d):\n%v\n", gmw.Id, err, p.Id)
-				//			continue
-				//		}
-				//
-				//		pb, err := p.Bot()
-				//		if err != nil {
-				//			log.Printf("[wkr%d] Error obtaining bot for player (game bot id: %d):\n%v\n", gmw.Id, err, p.Id)
-				//			continue
-				//		}
-				//
-				//		pb.Logf("RPC call [BEGIN]: %s (gameId: %d)", cm, game.Id)
-				//		err = rpchelper.Notify(pb.RPCEndpoint, cm, cp)
-				//		if err != nil {
-				//			log.Printf("[wkr%d] Error notifying player for complete game (bot id: %d):\n%v\n", gmw.Id, err, pb.Id)
-				//			continue
-				//		}
-				//		pb.Logf("RPC call [ END ]: %s (gameId: %d)", cm, game.Id)
-				//	}
-				//}
+				if nextRPCMethodName != "" {
+					QueueGameMove(nextRPCMethodName, nextMove)
+				} else {
+					// Send each player a Complete notification.
+					gbs, err := game.Players()
+					if err != nil {
+						log.Printf("[wkr%d] Error obtaining a player list for the game (game id: %d):\n%v\n", gmw.Id, game.Id, err)
+					}
 
-				//err = work.GameMove.SetGameState(gs)
-				//if err != nil {
-				//	log.Printf("[wkr%d] Error setting game state (game move id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id)
-				//	continue
-				//}
-				//}
+					for _, gb := range gbs {
 
-				err = work.GameMove.MarkComplete()
-				if err != nil {
-					log.Printf("[wkr%d] Error marking game move as complete (game move id: %d):\n%v\n", gmw.Id, err, work.GameMove.Id)
-					continue
+						player, err := gb.Bot()
+						if err != nil {
+							log.Printf("[wkr%d] Error obtaining a bot for the game bot (game id: %d, gamebot id: %d):\n%v\n", gmw.Id, game.Id, gb.Id, err)
+						}
+
+						gameManager.NotifyComplete(game, player)
+					}
+
 				}
 
 				continue

@@ -123,6 +123,35 @@ func (g *Game) WinningMove() (GameMove, error) {
 	return gameMove, nil
 }
 
+func (g *Game) LatestMove() (GameMove, error) {
+	log.Fatal("repository.Game.LatestMove() : Not yet implemented")
+
+	// TODO: Return the latest known game move.
+
+	return GameMove{}, nil
+}
+
+func (g *Game) WinningBot() (Bot, error) {
+	wm, err := g.WinningMove()
+	if err != nil {
+		return Bot{}, err
+	}
+
+	gb, err := wm.GameBot()
+	if err != nil {
+		return Bot{}, err
+	}
+
+	b, err := gb.Bot()
+	if err != nil {
+		return Bot{}, err
+	}
+
+	return b, nil
+}
+
+// Returns an ordered list of the players. The order is the order of play within the game. i.e. the first player in the
+// game will appear first in this list.
 func (g *Game) Players() ([]GameBot, error) {
 	db := GetDB()
 	rows, err := db.Query(`

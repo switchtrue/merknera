@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 
+	"errors"
+
 	"github.com/mleonard87/merknera/repository"
 )
 
@@ -47,6 +49,18 @@ type TicTacToeNextMoveResponseResult struct {
 	Position int `json:"position"`
 }
 
+type TicTacToeCompleteRequestParams struct {
+	GameId    int                `json:"gameid"`
+	Mark      string             `json:"mark"`
+	GameState TicTacToeGameState `json:"gamestate"`
+	Winner    bool               `json:"winner"`
+}
+
+type TicTacToeErrorRequestParams struct {
+	GameId  int    `json:"gameid"`
+	Message string `json:"message"`
+}
+
 func (tgm TicTacToeGameManager) Begin(game repository.Game) (rpcMethod string, initialPlayer repository.GameBot, gameState interface{}, err error) {
 	var initialGameState TicTacToeGameState
 	initialGameState = make([]string, 9, 9)
@@ -64,12 +78,77 @@ func (tgm TicTacToeGameManager) Resume(game repository.Game) (rpcMethod string, 
 	return fmt.Sprintf("%s.%s", TICTACTOE_RPC_NAMESPACE, TICTACTOE_RPC_METHOD_NAME_NEXT_MOVE), nil
 }
 
-func (tgm TicTacToeGameManager) CompleteRequestParams() {
-	// TODO
+func (tgm TicTacToeGameManager) CompleteRequestParams(game *repository.Game, bot *repository.Bot, finalGameState *TicTacToeGameState) (TicTacToeCompleteRequestParams, error) {
+	wb, err := game.WinningBot()
+	if err != nil {
+		return TicTacToeCompleteRequestParams{}, err
+	}
+
+	isWinner := bot.Id == wb.Id
+
+	mark, err := gamePlayerMark(game, bot)
+	if err != nil {
+		return TicTacToeCompleteRequestParams{}, err
+	}
+
+	return TicTacToeCompleteRequestParams{
+		GameId:    game.Id,
+		Mark:      mark,
+		GameState: finalGameState,
+		Winner:    isWinner,
+	}
 }
 
-func (tgm TicTacToeGameManager) ErrorRequestParams() {
-	// TODO
+func gamePlayerMark(game repository.Game, bot repository.Bot) (string, error) {
+	p, err := game.Players()
+	if err != nil {
+		return "", err
+	}
+
+	for i, player := range p {
+		if player.Id == bot.Id {
+			switch i {
+			case 0:
+				return "X"
+			case 1:
+				return "O"
+			}
+		}
+	}
+
+	return "", errors.New("Unable to determine mark for player.")
+}
+
+func (tgm TicTacToeGameManager) ErrorRequestParams(game repository.Game, message string) (TicTacToeErrorRequestParams, error) {
+	return TicTacToeErrorRequestParams{
+		GameId:  game.Id,
+		Message: message,
+	}
+}
+
+func (tgm TicTacToeGameManager) NextPlayer(currentMove repository.GameMove) (repository.GameBot, error) {
+	gb, err := currentMove.GameBot()
+	if err != nil {
+		return repository.GameBot{}, err
+	}
+
+	game, err := gb.Game()
+	if err != nil {
+		return repository.GameBot{}, err
+	}
+
+	gameBots, err := game.Players()
+	if err != nil {
+		return repository.GameBot{}, err
+	}
+
+	for _, b := range gameBots {
+		if b.Id != gb.Id {
+			return b, nil
+		}
+	}
+
+	return repository.GameBot{}, errors.New("Could not find GameBot for next move.")
 }
 
 func (tgm TicTacToeGameManager) NextMoveRequestParams(gameMove *repository.GameMove, gameState *TicTacToeGameState) (params TicTacToeNextMoveRequestParams, err error) {
@@ -372,19 +451,6 @@ func (tgm TicTacToeGameManager) GetGamesForBot(bot repository.Bot, otherBots []r
 //		Message:   errorMessage,
 //		ErrorCode: 9999,
 //	}
-//}
-
-//func getMarkForPlaySequence(ps int) string {
-//	switch ps {
-//	case 1:
-//		return "X"
-//	case 2:
-//		return "O"
-//	default:
-//		log.Fatal("Invalid play sequence for Tic-Tac-Toe")
-//	}
-//
-//	return ""
 //}
 
 //func createGameWithPlayers(gameType repository.GameType, playerOne *repository.Bot, playerTwo *repository.Bot) (repository.Game, error) {

@@ -91,7 +91,7 @@ func verifyBotsAndQueueMoves() {
 			log.Fatal(err)
 		}
 
-		rpcMethodName, err := gameManagerConfig.GameManager.Resume(g)
+		rpcMethodName, err := gameManagerConfig.GameProvider.Resume(g)
 		if err != nil {
 			log.Fatal(err)
 		}
